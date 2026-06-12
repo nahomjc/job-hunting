@@ -88,4 +88,14 @@ export const notificationSettingsRepository = {
       telegramLinkExpiresAt: null,
     });
   },
+
+  async findByChatId(chatId: string) {
+    const db = requireDb();
+    const [row] = await db
+      .select()
+      .from(notificationSettings)
+      .where(eq(notificationSettings.telegramChatId, chatId))
+      .limit(1);
+    return row ?? null;
+  },
 };

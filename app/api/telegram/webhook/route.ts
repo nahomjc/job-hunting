@@ -6,7 +6,12 @@ import {
   verifyTelegramWebhookSecret,
   type TelegramUpdate,
 } from "@/lib/telegram/bot";
+import { formatTelegramWelcome, getUserDisplayName } from "@/lib/telegram/messages";
 import { notificationSettingsRepository } from "@/lib/repositories/notification-settings-repository";
+
+function fallbackName(update: TelegramUpdate): string {
+  return update.message?.from?.first_name?.trim() || "there";
+}
 
 export async function POST(request: Request) {
   if (!isTelegramConfigured()) {
@@ -33,7 +38,6 @@ export async function POST(request: Request) {
   const text = message.text;
 
   if (text.startsWith("/disconnect")) {
-    // Allow users to unlink by messaging the bot (best-effort lookup by chat id)
     await sendTelegramMessage(
       chatId,
       "To disconnect Telegram, use the Settings page in JobHunter AI and click Disconnect."
@@ -53,18 +57,25 @@ export async function POST(request: Request) {
     }
 
     await notificationSettingsRepository.linkTelegram(settings.userId, chatId);
+    const name =
+      (await getUserDisplayName(settings.userId)) ?? fallbackName(update);
     await sendTelegramMessage(
       chatId,
-      "✅ <b>Telegram connected!</b>\n\nYou'll receive job alerts and updates here from JobHunter AI.\n\nManage preferences in Dashboard → Settings."
+      formatTelegramWelcome(name, true, true)
     );
     return NextResponse.json({ ok: true });
   }
 
   if (text.startsWith("/start")) {
-    await sendTelegramMessage(
-      chatId,
-      "👋 <b>JobHunter AI</b>\n\nTo connect your account, open Settings in the app and tap <b>Connect Telegram</b> — you'll get a one-time link.\n\nOr send <code>/start YOUR_CODE</code> if you already have a code."
-    );
+    const linked = await notificationSettingsRepository.findByChatId(chatId);
+    let name = fallbackName(update);
+
+    if (linked) {
+      name = (await getUserDisplayName(linked.userId)) ?? name;
+      await sendTelegramMessage(chatId, formatTelegramWelcome(name, true));
+    } else {
+      await sendTelegramMessage(chatId, formatTelegramWelcome(name, false));
+    }
     return NextResponse.json({ ok: true });
   }
 
