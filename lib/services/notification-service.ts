@@ -1,17 +1,9 @@
-import { Resend } from "resend";
 import { eq } from "drizzle-orm";
 import { requireDb, notificationSettings, users } from "@/lib/db";
 import { notificationRepository } from "@/lib/repositories/notification-repository";
+import { sendEmail, isBrevoConfigured } from "@/lib/email/brevo";
 import type { Job } from "@/lib/db/schema";
-
-let resend: Resend | null = null;
-
-function getResend() {
-  if (!resend && process.env.RESEND_API_KEY) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-}
+import type { DashboardStats } from "@/types";
 
 async function getSettings(userId: string) {
   const db = requireDb();
@@ -23,17 +15,38 @@ async function getSettings(userId: string) {
   return settings;
 }
 
-async function sendEmail(to: string, subject: string, body: string) {
-  const client = getResend();
-  if (!client) return false;
+async function getUserEmail(userId: string) {
+  const db = requireDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return user?.email ?? null;
+}
 
-  await client.emails.send({
-    from: process.env.EMAIL_FROM ?? "JobHunter AI <onboarding@resend.dev>",
-    to,
-    subject,
-    text: body,
-  });
-  return true;
+async function sendUserEmail(
+  userId: string,
+  subject: string,
+  body: string,
+  type: "high_match_job" | "recruiter_response" | "interview_scheduled" | "weekly_report",
+  metadata?: Record<string, unknown>
+) {
+  const settings = await getSettings(userId);
+  if (settings && settings.emailEnabled === false) return false;
+
+  const email = await getUserEmail(userId);
+  if (!email) return false;
+
+  const sent = await sendEmail({ to: email, subject, text: body });
+  if (sent) {
+    await notificationRepository.create({
+      userId,
+      type,
+      channel: "email",
+      title: subject,
+      body,
+      metadata,
+      sentAt: new Date(),
+    });
+  }
+  return sent;
 }
 
 async function sendTelegram(chatId: string, message: string) {
@@ -49,6 +62,8 @@ async function sendTelegram(chatId: string, message: string) {
 }
 
 export const notificationService = {
+  isEmailConfigured: isBrevoConfigured,
+
   async notifyHighMatch(userId: string, job: Job, score: number) {
     const settings = await getSettings(userId);
     if (settings && !settings.notifyHighMatch) return;
@@ -66,25 +81,16 @@ export const notificationService = {
       metadata: { jobId: job.id, score },
     });
 
-    const db = requireDb();
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-
-    if (settings?.emailEnabled !== false && user?.email) {
-      const sent = await sendEmail(user.email, title, body);
-      if (sent) {
-        await notificationRepository.create({
-          userId,
-          type: "high_match_job",
-          channel: "email",
-          title,
-          body,
-          sentAt: new Date(),
-        });
-      }
-    }
+    await sendUserEmail(userId, title, body, "high_match_job", {
+      jobId: job.id,
+      score,
+    });
 
     if (settings?.telegramEnabled && settings.telegramChatId) {
-      const sent = await sendTelegram(settings.telegramChatId, `<b>${title}</b>\n${body}`);
+      const sent = await sendTelegram(
+        settings.telegramChatId,
+        `<b>${title}</b>\n${body}`
+      );
       if (sent) {
         await notificationRepository.create({
           userId,
@@ -98,7 +104,12 @@ export const notificationService = {
     }
   },
 
-  async notifyInterviewScheduled(userId: string, company: string, title: string, date: Date) {
+  async notifyInterviewScheduled(
+    userId: string,
+    company: string,
+    title: string,
+    date: Date
+  ) {
     const settings = await getSettings(userId);
     if (settings && !settings.notifyInterviewScheduled) return;
 
@@ -112,6 +123,8 @@ export const notificationService = {
       title: notifTitle,
       body,
     });
+
+    await sendUserEmail(userId, notifTitle, body, "interview_scheduled");
   },
 
   async notifyRecruiterResponse(userId: string, company: string, message: string) {
@@ -119,6 +132,7 @@ export const notificationService = {
     if (settings && !settings.notifyRecruiterResponse) return;
 
     const title = `Recruiter response from ${company}`;
+
     await notificationRepository.create({
       userId,
       type: "recruiter_response",
@@ -126,5 +140,28 @@ export const notificationService = {
       title,
       body: message,
     });
+
+    await sendUserEmail(userId, title, message, "recruiter_response");
+  },
+
+  async notifyWeeklyReport(userId: string, stats: DashboardStats) {
+    const title = "Your Weekly Job Hunt Report";
+    const body = `Weekly Report:
+• Jobs found: ${stats.totalJobsFound}
+• Applications sent: ${stats.applicationsSent}
+• Interviews: ${stats.interviewsReceived}
+• Response rate: ${stats.responseRate.toFixed(1)}%
+• Offer rate: ${stats.offerRate.toFixed(1)}%`;
+
+    await notificationRepository.create({
+      userId,
+      type: "weekly_report",
+      channel: "in_app",
+      title,
+      body,
+      metadata: stats as unknown as Record<string, unknown>,
+    });
+
+    await sendUserEmail(userId, title, body, "weekly_report", stats as unknown as Record<string, unknown>);
   },
 };

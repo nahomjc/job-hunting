@@ -35,8 +35,8 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Notification Preferences</CardTitle>
             <CardDescription>
-              Configure email and Telegram notifications in your environment variables.
-              Set TELEGRAM_BOT_TOKEN and RESEND_API_KEY to enable external notifications.
+              Email is sent via Brevo. Set BREVO_API_KEY and verify your sender domain.
+              Auth emails (signup, reset password) use Brevo SMTP in Supabase — see docs/BREVO.md.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">

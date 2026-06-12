@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/security/rate-limit";
 import { requireDb, profiles } from "@/lib/db";
 import { analyticsService } from "@/lib/services/analytics-service";
-import { notificationRepository } from "@/lib/repositories/notification-repository";
+import { notificationService } from "@/lib/services/notification-service";
 
 export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
@@ -15,21 +15,8 @@ export async function GET(request: Request) {
 
   for (const profile of allProfiles) {
     const stats = await analyticsService.getDashboardStats(profile.userId);
-    const body = `Weekly Report:
-• Jobs found: ${stats.totalJobsFound}
-• Applications sent: ${stats.applicationsSent}
-• Interviews: ${stats.interviewsReceived}
-• Response rate: ${stats.responseRate.toFixed(1)}%
-• Offer rate: ${stats.offerRate.toFixed(1)}%`;
 
-    await notificationRepository.create({
-      userId: profile.userId,
-      type: "weekly_report",
-      channel: "in_app",
-      title: "Your Weekly Job Hunt Report",
-      body,
-      metadata: stats as unknown as Record<string, unknown>,
-    });
+    await notificationService.notifyWeeklyReport(profile.userId, stats);
 
     reports.push({ userId: profile.userId, stats });
   }
