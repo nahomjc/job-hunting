@@ -78,11 +78,20 @@ export interface ProfileFormData {
   resumeText: string;
 }
 
+export type ExperienceLevel = "junior" | "mid" | "senior" | "staff" | "lead" | "unknown";
+export type CompanySize = "startup" | "mid" | "enterprise" | "unknown";
+export type RemoteFilter = "all" | "remote" | "onsite" | "hybrid";
+
 export interface JobMatchFilters {
   minScore?: number;
   minSalary?: number;
+  maxSalary?: number;
   remote?: boolean;
+  remoteFilter?: RemoteFilter;
   location?: string;
+  search?: string;
+  companySize?: CompanySize;
+  experienceLevel?: ExperienceLevel;
   status?: ApplicationStatus;
 }
 

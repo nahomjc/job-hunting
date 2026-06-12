@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { jobHunterAgent } from "./job-hunter-agent";
 import { jobMatchAgent } from "./job-match-agent";
 import { resumeAgent } from "./resume-agent";
@@ -36,8 +36,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
   readonly type = "manager" as const;
   readonly name = "Manager Agent";
 
-  protected async execute(input: ManagerInput): Promise<ManagerOutput> {
+  protected async execute(input: ManagerInput, ctx: AgentRunContext): Promise<ManagerOutput> {
     const { userId, task } = input;
+    await ctx.log(`Manager orchestrating task: ${task}`, { progress: 8 });
+
     const profile = await profileRepository.getByUserId(userId);
     if (!profile) throw new Error("Profile not found. Complete your profile first.");
 

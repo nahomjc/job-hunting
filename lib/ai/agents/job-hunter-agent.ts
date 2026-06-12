@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { createDefaultProviders } from "@/lib/jobs/providers";
 import { jobRepository } from "@/lib/repositories/job-repository";
 import type { JobSearchResult } from "@/types";
@@ -32,7 +32,10 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
   readonly type = "job_hunter" as const;
   readonly name = "Job Hunter Agent";
 
-  protected async execute({ profile, query }: JobHunterInput): Promise<JobHunterOutput> {
+  protected async execute(
+    { profile, query }: JobHunterInput,
+    ctx: AgentRunContext
+  ): Promise<JobHunterOutput> {
     const searchQuery = query ?? buildSearchQuery(profile);
     const providers = createDefaultProviders();
     const seen = new Set<string>();
@@ -41,14 +44,33 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     let duplicates = 0;
     const byProvider: Record<string, number> = {};
 
-    for (const provider of providers) {
+    await ctx.log(`Building search query: "${searchQuery}"`, { progress: 10 });
+    await ctx.log(`Scanning ${providers.length} job board sources…`, { progress: 15 });
+
+    const totalProviders = providers.length;
+
+    for (let i = 0; i < providers.length; i++) {
+      const provider = providers[i];
+      const progressBase = 15 + Math.floor((i / totalProviders) * 70);
+
+      await ctx.log(`Scanning ${provider.displayName}…`, {
+        progress: progressBase,
+        metadata: { provider: provider.name },
+      });
+
       const results = await provider.search(searchQuery, {
         remote: profile.remotePreference === "remote",
         location: profile.preferredLocations?.[0],
-        limit: 30,
+        limit: 25,
       });
 
       byProvider[provider.name] = results.length;
+      const uniqueCompanies = new Set(results.map((r) => r.company.toLowerCase())).size;
+
+      await ctx.log(
+        `Found ${results.length} listings (${uniqueCompanies} companies) on ${provider.displayName}`,
+        { progress: progressBase + 5, metadata: { count: results.length, uniqueCompanies } }
+      );
 
       for (const job of results) {
         found++;
@@ -61,7 +83,6 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
 
         const existing = await jobRepository.findByExternalId(job.provider, job.externalId);
         if (existing) {
-          seen.add(key);
           continue;
         }
 
@@ -69,6 +90,11 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
         saved++;
       }
     }
+
+    await ctx.log(
+      `Scan complete — ${found} found, ${saved} new saved, ${duplicates} duplicates skipped`,
+      { progress: 95, level: "success" }
+    );
 
     return { found, saved, duplicates, byProvider };
   }

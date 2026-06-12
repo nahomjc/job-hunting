@@ -14,6 +14,9 @@
     "db:seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@getbrevo/brevo": "^5.0.4",
     "@radix-ui/react-avatar": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.16",
@@ -34,6 +37,7 @@
     "date-fns": "^4.4.0",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
     "next": "16.2.9",

@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { chat } from "../openrouter";
 import { getPrompt, interpolateTemplate } from "../prompts/prompt-service";
 import type { Job, Profile } from "@/lib/db/schema";
@@ -16,7 +16,10 @@ export class CoverLetterAgent extends BaseAgent<CoverLetterInput, CoverLetterOut
   readonly type = "cover_letter" as const;
   readonly name = "Cover Letter Agent";
 
-  protected async execute({ profile, job }: CoverLetterInput): Promise<CoverLetterOutput> {
+  protected async execute(
+    { profile, job }: CoverLetterInput,
+    ctx: AgentRunContext
+  ): Promise<CoverLetterOutput> {
     const prompt = await getPrompt("cover_letter");
 
     const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
@@ -30,6 +33,8 @@ export class CoverLetterAgent extends BaseAgent<CoverLetterInput, CoverLetterOut
       systemPrompt: prompt.systemPrompt,
       userPrompt,
       model: prompt.model ?? undefined,
+      userId: ctx.userId,
+      agentType: this.type,
     });
 
     return { content };

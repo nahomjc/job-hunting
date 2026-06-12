@@ -1,5 +1,9 @@
 import { eq, and, gte, desc } from "drizzle-orm";
 import { requireDb, jobMatches, jobs, applications } from "@/lib/db";
+import {
+  inferCompanySize,
+  inferExperienceLevel,
+} from "@/lib/jobs/job-metadata";
 import type { MatchScoreResult, JobMatchFilters } from "@/types";
 
 export const jobMatchRepository = {
@@ -53,21 +57,62 @@ export const jobMatchRepository = {
       .orderBy(desc(jobMatches.score));
 
     return rows.filter((row) => {
-      if (filters.minSalary && row.job.salaryMin && row.job.salaryMin < filters.minSalary) {
-        return false;
+      const { job, application } = row;
+
+      if (filters.minSalary) {
+        const effectiveMax = job.salaryMax ?? job.salaryMin;
+        if (effectiveMax != null && effectiveMax < filters.minSalary) return false;
       }
-      if (filters.remote !== undefined && row.job.isRemote !== filters.remote) {
-        return false;
+      if (filters.maxSalary) {
+        const effectiveMin = job.salaryMin ?? job.salaryMax;
+        if (effectiveMin != null && effectiveMin > filters.maxSalary) return false;
       }
+
+      const remoteFilter = filters.remoteFilter ?? (filters.remote ? "remote" : "all");
+      if (remoteFilter === "remote" && !job.isRemote) return false;
+      if (remoteFilter === "onsite" && job.isRemote) return false;
+      if (remoteFilter === "hybrid") {
+        const loc = (job.location ?? "").toLowerCase();
+        if (!loc.includes("hybrid") && job.isRemote) return false;
+      }
+
       if (
         filters.location &&
-        !row.job.location?.toLowerCase().includes(filters.location.toLowerCase())
+        !job.location?.toLowerCase().includes(filters.location.toLowerCase()) &&
+        !job.company.toLowerCase().includes(filters.location.toLowerCase())
       ) {
         return false;
       }
-      if (filters.status && row.application?.status !== filters.status) {
+
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const haystack = [
+          job.title,
+          job.company,
+          job.location ?? "",
+          ...(job.tags ?? []),
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+
+      if (filters.companySize && filters.companySize !== "unknown") {
+        const size = inferCompanySize(job);
+        if (size !== filters.companySize && size !== "unknown") return false;
+        if (size === "unknown") return false;
+      }
+
+      if (filters.experienceLevel && filters.experienceLevel !== "unknown") {
+        const level = inferExperienceLevel(job);
+        if (level !== filters.experienceLevel && level !== "unknown") return false;
+        if (level === "unknown") return false;
+      }
+
+      if (filters.status && application?.status !== filters.status) {
         return false;
       }
+
       return true;
     });
   },

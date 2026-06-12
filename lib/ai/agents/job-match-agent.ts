@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { chatJson } from "../openrouter";
 import { getPrompt, interpolateTemplate } from "../prompts/prompt-service";
 import type { Job, Profile } from "@/lib/db/schema";
@@ -12,23 +12,22 @@ interface JobMatchInput {
 
 export class JobMatchAgent extends BaseAgent<JobMatchInput, MatchScoreResult> {
   readonly type = "job_match" as const;
-  readonly name = "Job Match Agent";
+  readonly name = "Match Analyzer Agent";
 
-  protected async execute({
-    profile,
-    job,
-  }: JobMatchInput): Promise<MatchScoreResult> {
+  protected async execute(
+    { profile, job }: JobMatchInput,
+    ctx: AgentRunContext
+  ): Promise<MatchScoreResult> {
+    await ctx.log(`Analyzing fit for ${job.title} at ${job.company}`, { progress: 20 });
+
     const prompt = await getPrompt("job_match");
 
-    const salaryRange = formatSalary(
-      job.salaryMin,
-      job.salaryMax,
-      job.salaryCurrency ?? "USD",
-    );
     const profileSalary = formatSalary(
       profile.preferredSalaryMin,
-      profile.preferredSalaryMax,
+      profile.preferredSalaryMax
     );
+
+    await ctx.log("Comparing skills, experience, and salary expectations…", { progress: 45 });
 
     const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
       fullName: profile.fullName ?? "Candidate",
@@ -45,12 +44,24 @@ export class JobMatchAgent extends BaseAgent<JobMatchInput, MatchScoreResult> {
       description: job.description?.slice(0, 4000) ?? "",
     });
 
-    return chatJson<MatchScoreResult>({
+    await ctx.log("Running AI match analysis…", { progress: 70 });
+
+    const result = await chatJson<MatchScoreResult>({
       systemPrompt: prompt.systemPrompt,
       userPrompt,
       model: prompt.model ?? undefined,
       jsonMode: true,
+      userId: ctx.userId,
+      agentType: this.type,
     });
+
+    await ctx.log(`Match score: ${Math.round(result.score)}%`, {
+      progress: 95,
+      level: "success",
+      metadata: { score: result.score },
+    });
+
+    return result;
   }
 }
 

@@ -1,5 +1,6 @@
-import { requireDb, users } from "@/lib/db";
+import { requireDb, users, subscriptions } from "@/lib/db";
 import { profileRepository } from "@/lib/repositories/profile-repository";
+import { PLAN_MRR_CENTS } from "@/lib/admin/constants";
 import { eq } from "drizzle-orm";
 
 export const userService = {
@@ -11,11 +12,26 @@ export const userService = {
       .values({
         id: authUser.id,
         email: authUser.email ?? "",
+        lastActiveAt: new Date(),
       })
       .onConflictDoUpdate({
         target: users.id,
-        set: { email: authUser.email ?? "", updatedAt: new Date() },
+        set: {
+          email: authUser.email ?? "",
+          lastActiveAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
+
+    await db
+      .insert(subscriptions)
+      .values({
+        userId: authUser.id,
+        plan: "free",
+        status: "active",
+        mrrCents: PLAN_MRR_CENTS.free,
+      })
+      .onConflictDoNothing();
 
     const profile = await profileRepository.getByUserId(authUser.id);
     if (!profile) {

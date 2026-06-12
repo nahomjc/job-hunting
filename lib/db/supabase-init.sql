@@ -36,21 +36,87 @@ DO $$ BEGIN CREATE TYPE agent_status AS ENUM ('pending', 'running', 'completed',
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN CREATE TYPE job_provider AS ENUM (
-  'remoteok', 'wellfound', 'remotive', 'arbeitnow', 'greenhouse', 'lever', 'career_page', 'manual'
+  'remoteok', 'wellfound', 'remotive', 'arbeitnow',
+  'remotejobs', 'himalayas', 'jobsbase', 'remnavi',
+  'greenhouse', 'lever', 'career_page', 'manual'
 );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- If job_provider already exists, add new enum values (run once on existing DBs):
+DO $$ BEGIN CREATE TYPE subscription_plan AS ENUM ('free', 'pro', 'team');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN CREATE TYPE subscription_status AS ENUM ('active', 'trialing', 'past_due', 'canceled');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Run on existing databases:
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remotive';
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'arbeitnow';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remotejobs';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'himalayas';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'jobsbase';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remnavi';
 
 -- ─── Users (synced from Supabase Auth) ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
-  id         UUID PRIMARY KEY,
-  email      TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID PRIMARY KEY,
+  email           TEXT NOT NULL UNIQUE,
+  last_active_at  TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Run on existing databases:
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+
+-- ─── Subscriptions ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id              UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  plan                 subscription_plan NOT NULL DEFAULT 'free',
+  status               subscription_status NOT NULL DEFAULT 'active',
+  mrr_cents            INTEGER NOT NULL DEFAULT 0,
+  current_period_start TIMESTAMPTZ,
+  current_period_end   TIMESTAMPTZ,
+  canceled_at          TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON subscriptions (status);
+
+-- ─── AI Usage Logs ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ai_usage_logs (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID REFERENCES users(id) ON DELETE SET NULL,
+  model             TEXT NOT NULL,
+  agent_type        agent_type,
+  prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+  completion_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens      INTEGER NOT NULL DEFAULT 0,
+  cost_usd          REAL NOT NULL DEFAULT 0,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ai_usage_logs_user_id_idx ON ai_usage_logs (user_id);
+CREATE INDEX IF NOT EXISTS ai_usage_logs_created_at_idx ON ai_usage_logs (created_at);
+CREATE INDEX IF NOT EXISTS ai_usage_logs_model_idx ON ai_usage_logs (model);
+
+-- ─── Login Events ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS login_events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+  email       TEXT,
+  ip_address  TEXT,
+  user_agent  TEXT,
+  success     BOOLEAN NOT NULL DEFAULT TRUE,
+  suspicious  BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata    JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS login_events_user_id_idx ON login_events (user_id);
+CREATE INDEX IF NOT EXISTS login_events_created_at_idx ON login_events (created_at);
+CREATE INDEX IF NOT EXISTS login_events_suspicious_idx ON login_events (suspicious);
 
 -- Optional: keep public.users in sync with auth.users
 -- CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -162,6 +228,21 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE UNIQUE INDEX IF NOT EXISTS applications_user_job_idx ON applications (user_id, job_id);
 CREATE INDEX IF NOT EXISTS applications_status_idx ON applications (status);
 
+CREATE TABLE IF NOT EXISTS application_events (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id  UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_type      TEXT NOT NULL,
+  from_status     application_status,
+  to_status       application_status,
+  message         TEXT NOT NULL,
+  metadata        JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS application_events_application_id_idx ON application_events (application_id);
+CREATE INDEX IF NOT EXISTS application_events_user_id_idx ON application_events (user_id);
+
 -- ─── Interviews ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS interviews (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -225,6 +306,22 @@ CREATE TABLE IF NOT EXISTS agent_executions (
 );
 
 CREATE INDEX IF NOT EXISTS agent_executions_user_id_idx ON agent_executions (user_id);
+
+CREATE TABLE IF NOT EXISTS agent_execution_logs (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  execution_id UUID NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+  user_id      UUID REFERENCES users(id) ON DELETE CASCADE,
+  agent_type   agent_type NOT NULL,
+  message      TEXT NOT NULL,
+  progress     INTEGER,
+  level        TEXT NOT NULL DEFAULT 'info',
+  metadata     JSONB,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS agent_execution_logs_execution_id_idx ON agent_execution_logs (execution_id);
+CREATE INDEX IF NOT EXISTS agent_execution_logs_user_id_idx ON agent_execution_logs (user_id);
+CREATE INDEX IF NOT EXISTS agent_execution_logs_created_at_idx ON agent_execution_logs (created_at);
 
 -- ─── Prompt Templates ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS prompt_templates (

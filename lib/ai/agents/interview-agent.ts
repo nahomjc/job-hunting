@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { chatJson } from "../openrouter";
 import { getPrompt, interpolateTemplate } from "../prompts/prompt-service";
 import type { Job, Profile } from "@/lib/db/schema";
@@ -18,7 +18,10 @@ export class InterviewAgent extends BaseAgent<InterviewInput, InterviewOutput> {
   readonly type = "interview" as const;
   readonly name = "Interview Agent";
 
-  protected async execute({ profile, job, stage }: InterviewInput): Promise<InterviewOutput> {
+  protected async execute(
+    { profile, job, stage }: InterviewInput,
+    ctx: AgentRunContext
+  ): Promise<InterviewOutput> {
     const prompt = await getPrompt("interview_prep");
 
     const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
@@ -34,6 +37,8 @@ export class InterviewAgent extends BaseAgent<InterviewInput, InterviewOutput> {
       userPrompt,
       model: prompt.model ?? undefined,
       jsonMode: true,
+      userId: ctx.userId,
+      agentType: this.type,
     });
   }
 }

@@ -75,10 +75,27 @@ export const jobProviderEnum = pgEnum("job_provider", [
   "wellfound",
   "remotive",
   "arbeitnow",
+  "remotejobs",
+  "himalayas",
+  "jobsbase",
+  "remnavi",
   "greenhouse",
   "lever",
   "career_page",
   "manual",
+]);
+
+export const subscriptionPlanEnum = pgEnum("subscription_plan", [
+  "free",
+  "pro",
+  "team",
+]);
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
 ]);
 
 // ─── Users (synced from Supabase Auth) ───────────────────────────────────────
@@ -86,9 +103,76 @@ export const jobProviderEnum = pgEnum("job_provider", [
 export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── Subscriptions ───────────────────────────────────────────────────────────
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    plan: subscriptionPlanEnum("plan").default("free").notNull(),
+    status: subscriptionStatusEnum("status").default("active").notNull(),
+    mrrCents: integer("mrr_cents").default(0).notNull(),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("subscriptions_status_idx").on(t.status)]
+);
+
+// ─── AI Usage Logs ───────────────────────────────────────────────────────────
+
+export const aiUsageLogs = pgTable(
+  "ai_usage_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    model: text("model").notNull(),
+    agentType: agentTypeEnum("agent_type"),
+    promptTokens: integer("prompt_tokens").default(0).notNull(),
+    completionTokens: integer("completion_tokens").default(0).notNull(),
+    totalTokens: integer("total_tokens").default(0).notNull(),
+    costUsd: real("cost_usd").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("ai_usage_logs_user_id_idx").on(t.userId),
+    index("ai_usage_logs_created_at_idx").on(t.createdAt),
+    index("ai_usage_logs_model_idx").on(t.model),
+  ]
+);
+
+// ─── Login Events ────────────────────────────────────────────────────────────
+
+export const loginEvents = pgTable(
+  "login_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    email: text("email"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    success: boolean("success").default(true).notNull(),
+    suspicious: boolean("suspicious").default(false).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("login_events_user_id_idx").on(t.userId),
+    index("login_events_created_at_idx").on(t.createdAt),
+    index("login_events_suspicious_idx").on(t.suspicious),
+  ]
+);
 
 // ─── Profiles ────────────────────────────────────────────────────────────────
 
@@ -218,6 +302,29 @@ export const applications = pgTable(
   ]
 );
 
+export const applicationEvents = pgTable(
+  "application_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    fromStatus: applicationStatusEnum("from_status"),
+    toStatus: applicationStatusEnum("to_status"),
+    message: text("message").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("application_events_application_id_idx").on(t.applicationId),
+    index("application_events_user_id_idx").on(t.userId),
+  ]
+);
+
 // ─── Interviews ────────────────────────────────────────────────────────────────
 
 export const interviews = pgTable(
@@ -301,6 +408,28 @@ export const agentExecutions = pgTable(
   (t) => [index("agent_executions_user_id_idx").on(t.userId)]
 );
 
+export const agentExecutionLogs = pgTable(
+  "agent_execution_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    executionId: uuid("execution_id")
+      .notNull()
+      .references(() => agentExecutions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    agentType: agentTypeEnum("agent_type").notNull(),
+    message: text("message").notNull(),
+    progress: integer("progress"),
+    level: text("level").default("info").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("agent_execution_logs_execution_id_idx").on(t.executionId),
+    index("agent_execution_logs_user_id_idx").on(t.userId),
+    index("agent_execution_logs_created_at_idx").on(t.createdAt),
+  ]
+);
+
 // ─── Prompt Templates ────────────────────────────────────────────────────────
 
 export const promptTemplates = pgTable(
@@ -341,6 +470,7 @@ export const auditLogs = pgTable(
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles, { fields: [users.id], references: [profiles.userId] }),
+  subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }),
   resumes: many(resumes),
   jobMatches: many(jobMatches),
   applications: many(applications),
@@ -374,6 +504,15 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
     references: [jobMatches.id],
   }),
   interviews: many(interviews),
+  events: many(applicationEvents),
+}));
+
+export const applicationEventsRelations = relations(applicationEvents, ({ one }) => ({
+  application: one(applications, {
+    fields: [applicationEvents.applicationId],
+    references: [applications.id],
+  }),
+  user: one(users, { fields: [applicationEvents.userId], references: [users.id] }),
 }));
 
 export const interviewsRelations = relations(interviews, ({ one }) => ({
@@ -387,12 +526,17 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+export type LoginEvent = typeof loginEvents.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type JobMatch = typeof jobMatches.$inferSelect;
 export type Application = typeof applications.$inferSelect;
+export type ApplicationEvent = typeof applicationEvents.$inferSelect;
 export type Interview = typeof interviews.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Resume = typeof resumes.$inferSelect;
 export type AgentExecution = typeof agentExecutions.$inferSelect;
+export type AgentExecutionLog = typeof agentExecutionLogs.$inferSelect;
 export type PromptTemplate = typeof promptTemplates.$inferSelect;

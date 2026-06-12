@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { QUALITY_MODEL } from "./models";
+import { logAiUsage } from "@/lib/services/ai-usage-service";
+import type { AgentType } from "@/lib/ai/agents/base-agent";
 
 const DEFAULT_MODEL = QUALITY_MODEL;
 
@@ -31,6 +33,8 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  userId?: string;
+  agentType?: AgentType;
 }
 
 export async function chat({
@@ -40,6 +44,8 @@ export async function chat({
   temperature = 0.3,
   maxTokens = 4096,
   jsonMode = false,
+  userId,
+  agentType,
 }: ChatOptions): Promise<string> {
   const openai = getClient();
 
@@ -53,6 +59,17 @@ export async function chat({
       { role: "user", content: userPrompt },
     ],
   });
+
+  const usage = response.usage;
+  if (usage) {
+    void logAiUsage({
+      userId,
+      model,
+      agentType,
+      promptTokens: usage.prompt_tokens ?? 0,
+      completionTokens: usage.completion_tokens ?? 0,
+    });
+  }
 
   const content = response.choices[0]?.message?.content;
   if (!content) {

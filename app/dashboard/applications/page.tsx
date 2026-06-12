@@ -1,71 +1,71 @@
 import { ClipboardList } from "lucide-react";
 import { Header } from "@/components/dashboard/header";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ApplicationActions } from "@/components/dashboard/application-actions";
+import { KanbanBoard } from "@/components/applications/kanban-board";
 import { getAuthUser } from "@/lib/supabase/server";
 import { applicationRepository } from "@/lib/repositories/application-repository";
-import { formatSalary } from "@/lib/utils";
+import type { KanbanApplication } from "@/components/applications/types";
+import { statusToColumn } from "@/lib/applications/kanban-config";
 
-const statusColors: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
-  discovered: "outline",
-  saved: "secondary",
-  applied: "default",
-  recruiter_contacted: "warning",
-  interview_scheduled: "success",
-  offer_received: "success",
-  rejected: "destructive",
-};
+function serializeApplications(
+  rows: Awaited<ReturnType<typeof applicationRepository.findForUser>>
+): KanbanApplication[] {
+  return rows.map(({ application, job, match }) => ({
+      id: application.id,
+      status: application.status === "discovered" ? "saved" : application.status,
+      notes: application.notes,
+      appliedAt: application.appliedAt?.toISOString() ?? null,
+      createdAt: application.createdAt.toISOString(),
+      updatedAt: application.updatedAt.toISOString(),
+      job: {
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        url: job.url,
+        location: job.location,
+        isRemote: job.isRemote,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        salaryCurrency: job.salaryCurrency,
+      },
+      matchScore: match?.score ?? null,
+    }));
+}
 
 export default async function ApplicationsPage() {
   const user = await getAuthUser();
   if (!user) return null;
 
-  let applications: Awaited<ReturnType<typeof applicationRepository.findForUser>> = [];
+  let kanbanApps: KanbanApplication[] = [];
   try {
-    applications = await applicationRepository.findForUser(user.id);
+    const rows = await applicationRepository.findForUser(user.id);
+    kanbanApps = serializeApplications(rows);
   } catch {
     // DB not configured
   }
 
+  const pipelineCount = kanbanApps.length;
+
   return (
     <>
-      <Header title="Applications" description="Track every application through the pipeline" />
+      <Header
+        title="Application Tracker"
+        description="Drag cards across your pipeline — from saved to offer"
+      />
       <div className="flex-1 p-4 md:p-8">
-        {applications.length === 0 ? (
+        {pipelineCount === 0 ? (
           <EmptyState
             icon={ClipboardList}
             title="No applications yet"
-            description="Save jobs from your matches and generate application materials to get started."
+            description="Save jobs from Jobs Found to add them to your Saved column, then drag through your pipeline."
           />
         ) : (
-          <div className="space-y-4">
-            {applications.map(({ application, job, match }) => (
-              <Card key={application.id}>
-                <CardHeader className="flex flex-row items-start justify-between pb-2">
-                  <div>
-                    <CardTitle className="text-base">{job.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{job.company}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {match && (
-                      <Badge variant="success">{Math.round(match.score)}% match</Badge>
-                    )}
-                    <Badge variant={statusColors[application.status] ?? "outline"} className="capitalize">
-                      {application.status.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="text-sm text-muted-foreground">
-                    {formatSalary(job.salaryMin, job.salaryMax)} · {job.isRemote ? "Remote" : job.location}
-                  </div>
-                  <ApplicationActions applicationId={application.id} jobId={job.id} status={application.status} />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <>
+            <p className="text-sm text-muted-foreground mb-6">
+              {pipelineCount} application{pipelineCount === 1 ? "" : "s"} in pipeline
+            </p>
+            <KanbanBoard initialApplications={kanbanApps} />
+          </>
         )}
       </div>
     </>

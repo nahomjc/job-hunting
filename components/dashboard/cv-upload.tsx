@@ -69,8 +69,11 @@ export function CvUpload({ onParsed }: CvUploadProps) {
         onDrop={handleDrop}
         onClick={() => !parsing && inputRef.current?.click()}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors cursor-pointer",
-          dragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
+          "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center cursor-pointer",
+          "transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          dragging
+            ? "border-primary bg-primary/5 shadow-[var(--shadow-glow)] scale-[1.01]"
+            : "border-border/80 hover:border-primary/40 hover:bg-muted/30",
           parsing && "pointer-events-none opacity-70"
         )}
       >

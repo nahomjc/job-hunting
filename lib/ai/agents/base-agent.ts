@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { requireDb, agentExecutions } from "@/lib/db";
+import { requireDb, agentExecutions, agentExecutionLogs } from "@/lib/db";
 import type { AgentResult } from "@/types";
 
 export type AgentType =
@@ -11,11 +11,22 @@ export type AgentType =
   | "outreach"
   | "interview";
 
+export type AgentLogLevel = "info" | "success" | "warn" | "error";
+
+export interface AgentRunContext {
+  executionId: string;
+  userId?: string;
+  log: (
+    message: string,
+    options?: { progress?: number; level?: AgentLogLevel; metadata?: Record<string, unknown> }
+  ) => Promise<void>;
+}
+
 export abstract class BaseAgent<TInput, TOutput> {
   abstract readonly type: AgentType;
   abstract readonly name: string;
 
-  protected abstract execute(input: TInput): Promise<TOutput>;
+  protected abstract execute(input: TInput, ctx: AgentRunContext): Promise<TOutput>;
 
   async run(input: TInput, userId?: string): Promise<AgentResult<TOutput>> {
     const db = requireDb();
@@ -31,9 +42,33 @@ export abstract class BaseAgent<TInput, TOutput> {
       })
       .returning();
 
+    const ctx: AgentRunContext = {
+      executionId: execution.id,
+      userId,
+      log: async (message, options) => {
+        await db.insert(agentExecutionLogs).values({
+          executionId: execution.id,
+          userId: userId ?? null,
+          agentType: this.type,
+          message,
+          progress: options?.progress,
+          level: options?.level ?? "info",
+          metadata: options?.metadata,
+        });
+      },
+    };
+
+    await ctx.log(`${this.name} initialized`, { progress: 5, level: "info" });
+
     try {
-      const data = await this.execute(input);
+      const data = await this.execute(input, ctx);
       const durationMs = Date.now() - start;
+
+      await ctx.log(`${this.name} completed successfully`, {
+        progress: 100,
+        level: "success",
+        metadata: { durationMs },
+      });
 
       await db
         .update(agentExecutions)
@@ -48,6 +83,7 @@ export abstract class BaseAgent<TInput, TOutput> {
       return { success: true, data };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
+      await ctx.log(message, { level: "error" });
       await db
         .update(agentExecutions)
         .set({

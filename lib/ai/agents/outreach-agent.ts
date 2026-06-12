@@ -1,4 +1,4 @@
-import { BaseAgent } from "./base-agent";
+import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { chat, chatJson } from "../openrouter";
 import { getPrompt, interpolateTemplate } from "../prompts/prompt-service";
 import type { Job, Profile } from "@/lib/db/schema";
@@ -20,12 +20,18 @@ export class OutreachAgent extends BaseAgent<OutreachInput, OutreachOutput> {
   readonly type = "outreach" as const;
   readonly name = "Outreach Agent";
 
-  protected async execute(input: OutreachInput): Promise<OutreachOutput> {
+  protected async execute(
+    input: OutreachInput,
+    ctx: AgentRunContext
+  ): Promise<OutreachOutput> {
     const { profile, job, type, daysAgo = 7 } = input;
     const profileJson = JSON.stringify(profile, null, 2);
 
     if (type === "email") {
+      await ctx.log(`Generating recruiter email for ${job.company}`, { progress: 20 });
       const prompt = await getPrompt("outreach_email");
+      await ctx.log("Crafting personalized subject line and body…", { progress: 55 });
+
       const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
         profileJson,
         company: job.company,
@@ -36,11 +42,16 @@ export class OutreachAgent extends BaseAgent<OutreachInput, OutreachOutput> {
         userPrompt,
         model: prompt.model ?? undefined,
         jsonMode: true,
+        userId: ctx.userId,
+        agentType: this.type,
       });
+
+      await ctx.log("Recruiter outreach message ready", { progress: 95, level: "success" });
       return { email };
     }
 
     if (type === "linkedin") {
+      await ctx.log(`Drafting LinkedIn message for ${job.company}`, { progress: 30 });
       const prompt = await getPrompt("outreach_linkedin");
       const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
         profileJson,
@@ -52,10 +63,14 @@ export class OutreachAgent extends BaseAgent<OutreachInput, OutreachOutput> {
         userPrompt,
         model: prompt.model ?? undefined,
         jsonMode: true,
+        userId: ctx.userId,
+        agentType: this.type,
       });
+      await ctx.log("LinkedIn outreach drafted", { progress: 95, level: "success" });
       return { linkedin };
     }
 
+    await ctx.log(`Writing follow-up message (${daysAgo} days since application)`, { progress: 40 });
     const prompt = await getPrompt("follow_up");
     const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
       profileJson,
@@ -67,7 +82,10 @@ export class OutreachAgent extends BaseAgent<OutreachInput, OutreachOutput> {
       systemPrompt: prompt.systemPrompt,
       userPrompt,
       model: prompt.model ?? undefined,
+      userId: ctx.userId,
+      agentType: this.type,
     });
+    await ctx.log("Follow-up message generated", { progress: 95, level: "success" });
     return { followUp };
   }
 }
