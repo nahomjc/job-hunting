@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Upload, FileText, Loader2, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { parseAndImportCv } from "@/app/actions/cv";
 import type { ParsedCvResult } from "@/lib/services/cv-parser-service";
 import { toast } from "sonner";
 
@@ -13,22 +13,48 @@ interface CvUploadProps {
 }
 
 const ACCEPT = ".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
+const MAX_BYTES = 5 * 1024 * 1024;
 
 export function CvUpload({ onParsed }: CvUploadProps) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
 
   const processFile = useCallback(async (selected: File) => {
+    if (selected.size > MAX_BYTES) {
+      toast.error("File too large. Maximum size is 5 MB.");
+      return;
+    }
+
     setFile(selected);
     setParsing(true);
 
     try {
       const formData = new FormData();
       formData.append("cv", selected);
-      const result = await parseAndImportCv(formData);
-      onParsed(result.parsed);
+
+      const response = await fetch("/api/cv/parse", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = (await response.json()) as {
+        parsed?: ParsedCvResult;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to parse CV");
+      }
+
+      if (!data.parsed) {
+        throw new Error("Invalid response from server");
+      }
+
+      onParsed(data.parsed);
+      router.refresh();
       toast.success("CV parsed! Your profile and master resume were updated.");
     } catch (err) {
       setFile(null);
@@ -36,7 +62,7 @@ export function CvUpload({ onParsed }: CvUploadProps) {
     } finally {
       setParsing(false);
     }
-  }, [onParsed]);
+  }, [onParsed, router]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();

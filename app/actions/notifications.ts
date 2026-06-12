@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { getAuthUser } from "@/lib/supabase/server";
 import { notificationSettingsRepository } from "@/lib/repositories/notification-settings-repository";
+import { getNotificationSettingsDisplay } from "@/lib/services/notification-settings-display";
 import {
   getTelegramBotUsername,
   getTelegramDeepLink,
@@ -19,28 +20,7 @@ export async function getNotificationSettingsAction() {
   const user = await getAuthUser();
   if (!user) throw new Error("Unauthorized");
 
-  const settings = await notificationSettingsRepository.getOrCreate(user.id);
-  const botUsername = getTelegramBotUsername();
-  const linkCode = settings.telegramLinkCode;
-  const linkValid =
-    linkCode &&
-    settings.telegramLinkExpiresAt &&
-    settings.telegramLinkExpiresAt > new Date();
-
-  return {
-    emailEnabled: settings.emailEnabled ?? true,
-    telegramEnabled: settings.telegramEnabled ?? false,
-    telegramConnected: Boolean(settings.telegramChatId),
-    highMatchThreshold: settings.highMatchThreshold ?? 80,
-    notifyHighMatch: settings.notifyHighMatch ?? true,
-    notifyRecruiterResponse: settings.notifyRecruiterResponse ?? true,
-    notifyInterviewScheduled: settings.notifyInterviewScheduled ?? true,
-    telegramConfigured: isTelegramConfigured(),
-    botUsername,
-    linkCode: linkValid ? linkCode : null,
-    linkExpiresAt: linkValid ? settings.telegramLinkExpiresAt?.toISOString() : null,
-    deepLink: linkValid && linkCode ? getTelegramDeepLink(linkCode) : null,
-  };
+  return getNotificationSettingsDisplay(user.id);
 }
 
 export async function updateNotificationSettingsAction(data: {

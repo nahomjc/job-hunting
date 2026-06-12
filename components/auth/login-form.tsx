@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { loginSchema } from "@/lib/auth/schemas";
-import { signInWithEmail } from "@/lib/auth/actions";
-import { recordLoginEvent } from "@/app/actions/auth-events";
+import { signInWithEmailAction } from "@/app/actions/auth";
 import { AuthCard, AuthCardHeader } from "@/components/auth/auth-card";
 import { AuthDivider } from "@/components/auth/auth-divider";
 import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
@@ -16,7 +15,6 @@ import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { toast } from "sonner";
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,29 +51,24 @@ export function LoginForm() {
     e.preventDefault();
     setTouched({ email: true, password: true });
 
-    const result = loginSchema.safeParse({ email, password });
-    if (!result.success) {
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
       const newErrors: Record<string, string> = {};
-      result.error.issues.forEach((issue) => {
+      for (const issue of parsed.error.issues) {
         const key = issue.path[0] as string;
         newErrors[key] = issue.message;
-      });
+      }
       setErrors(newErrors);
       return;
     }
 
     setLoading(true);
-    const { error } = await signInWithEmail(email, password);
+    const authResult = await signInWithEmailAction(email, password);
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message);
-      return;
+    if (authResult?.error) {
+      toast.error(authResult.error);
     }
-
-    await recordLoginEvent(true);
-    router.push("/dashboard");
-    router.refresh();
   }
 
   const emailValid = touched.email && !errors.email && email.includes("@");

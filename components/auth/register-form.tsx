@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { registerSchema } from "@/lib/auth/schemas";
-import { signUpWithEmail } from "@/lib/auth/actions";
+import { signUpWithEmailAction } from "@/app/actions/auth";
 import { AuthCard, AuthCardHeader } from "@/components/auth/auth-card";
 import { AuthDivider } from "@/components/auth/auth-divider";
 import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
@@ -25,7 +24,6 @@ function getPasswordStrength(password: string): { score: number; label: string }
 }
 
 export function RegisterForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -60,17 +58,19 @@ export function RegisterForm() {
     if (!validateAll()) return;
 
     setLoading(true);
-    const { error } = await signUpWithEmail(email, password);
+    const result = await signUpWithEmailAction(email, password);
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message);
+    if (result?.error) {
+      toast.error(result.error);
       return;
     }
 
-    toast.success("Account created! Check your email to confirm.");
-    router.push("/dashboard");
-    router.refresh();
+    if (result?.needsConfirmation) {
+      toast.success("Account created! Check your email to confirm.");
+      return;
+    }
+    // Success with session: server action redirects to /dashboard
   }
 
   const emailValid = touched.email && !errors.email && email.includes("@");

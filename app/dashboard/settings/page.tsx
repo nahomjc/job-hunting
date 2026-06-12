@@ -4,7 +4,7 @@ import { NotificationSettingsForm } from "@/components/dashboard/notification-se
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthUser } from "@/lib/supabase/server";
 import { profileRepository } from "@/lib/repositories/profile-repository";
-import { getNotificationSettingsAction } from "@/app/actions/notifications";
+import { getNotificationSettingsDisplay } from "@/lib/services/notification-settings-display";
 
 export default async function SettingsPage() {
   const user = await getAuthUser();
@@ -14,12 +14,15 @@ export default async function SettingsPage() {
   let notificationSettings = null;
 
   try {
-    [profile, notificationSettings] = await Promise.all([
-      profileRepository.getByUserId(user.id),
-      getNotificationSettingsAction(),
-    ]);
+    profile = await profileRepository.getByUserId(user.id);
   } catch {
     // DB not configured
+  }
+
+  try {
+    notificationSettings = await getNotificationSettingsDisplay(user.id);
+  } catch {
+    // DB not configured or notification_settings schema pending migration
   }
 
   return (
