@@ -2,6 +2,7 @@ import { eq, and, sql, inArray, desc } from "drizzle-orm";
 import { requireDb, applications, jobs, jobMatches } from "@/lib/db";
 import type { ApplicationStatus } from "@/types";
 import { applicationEventRepository } from "@/lib/repositories/application-event-repository";
+import { interviewRepository } from "@/lib/repositories/interview-repository";
 
 export const applicationRepository = {
   async findForUser(userId: string) {
@@ -110,6 +111,10 @@ export const applicationRepository = {
         current.status,
         status
       );
+
+      if (status === "interview_scheduled") {
+        await interviewRepository.ensureForApplication(userId, applicationId);
+      }
     }
 
     return app;

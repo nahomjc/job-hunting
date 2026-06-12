@@ -14,6 +14,9 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
   const app = await applicationRepository.updateStatus(user.id, applicationId, status);
   revalidatePath("/dashboard/applications");
+  if (status === "interview_scheduled") {
+    revalidatePath("/dashboard/interviews");
+  }
   return app;
 }
 
