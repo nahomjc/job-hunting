@@ -15,7 +15,12 @@ interface RunAgentButtonProps {
 }
 
 interface PipelineResults {
-  search?: { found?: number; saved?: number; duplicates?: number };
+  search?: {
+    found?: number;
+    saved?: number;
+    duplicates?: number;
+    byProvider?: Record<string, number>;
+  };
   scoring?: {
     scored?: number;
     failed?: number;
@@ -43,9 +48,17 @@ function formatPipelineMessage(results: PipelineResults): string {
   const parts = [
     `Found ${found} jobs`,
     saved > 0 ? `${saved} new saved` : null,
-    scored > 0 ? `${scored} scored` : attempted > 0 ? `0/${attempted} scored` : null,
+    scored > 0 ? `${scored} scored` : null,
     failed > 0 ? `${failed} scoring errors` : null,
   ].filter(Boolean);
+
+  const sources = results.search?.byProvider;
+  if (sources && Object.keys(sources).length > 0) {
+    const sourceSummary = Object.entries(sources)
+      .map(([name, count]) => `${name}: ${count}`)
+      .join(", ");
+    return `${parts.join(" · ")} (${sourceSummary})`;
+  }
 
   return parts.join(" · ");
 }

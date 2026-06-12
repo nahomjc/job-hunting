@@ -1,5 +1,7 @@
 import { RemoteOKProvider } from "./remoteok";
 import { WellfoundProvider } from "./wellfound";
+import { RemotiveProvider } from "./remotive";
+import { ArbeitnowProvider } from "./arbeitnow";
 import { GreenhouseProvider } from "./greenhouse";
 import { LeverProvider } from "./lever";
 import { CareerPageProvider } from "./career-page";
@@ -8,6 +10,8 @@ import type { JobProviderAdapter } from "./types";
 export function createDefaultProviders(): JobProviderAdapter[] {
   const providers: JobProviderAdapter[] = [
     new RemoteOKProvider(),
+    new RemotiveProvider(),
+    new ArbeitnowProvider(),
     new WellfoundProvider(),
   ];
 
@@ -44,4 +48,4 @@ export function registerProvider(provider: JobProviderAdapter) {
 }
 
 export type { JobProviderAdapter, SearchOptions } from "./types";
-export { RemoteOKProvider, WellfoundProvider, GreenhouseProvider, LeverProvider, CareerPageProvider };
+export { RemoteOKProvider, WellfoundProvider, RemotiveProvider, ArbeitnowProvider, GreenhouseProvider, LeverProvider, CareerPageProvider };

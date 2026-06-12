@@ -36,9 +36,13 @@ DO $$ BEGIN CREATE TYPE agent_status AS ENUM ('pending', 'running', 'completed',
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN CREATE TYPE job_provider AS ENUM (
-  'remoteok', 'wellfound', 'greenhouse', 'lever', 'career_page', 'manual'
+  'remoteok', 'wellfound', 'remotive', 'arbeitnow', 'greenhouse', 'lever', 'career_page', 'manual'
 );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- If job_provider already exists, add new enum values (run once on existing DBs):
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remotive';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'arbeitnow';
 
 -- ─── Users (synced from Supabase Auth) ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (

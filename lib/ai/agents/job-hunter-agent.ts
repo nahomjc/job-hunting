@@ -13,6 +13,7 @@ interface JobHunterOutput {
   found: number;
   saved: number;
   duplicates: number;
+  byProvider: Record<string, number>;
 }
 
 function buildSearchQuery(profile: Profile): string {
@@ -38,6 +39,7 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     let found = 0;
     let saved = 0;
     let duplicates = 0;
+    const byProvider: Record<string, number> = {};
 
     for (const provider of providers) {
       const results = await provider.search(searchQuery, {
@@ -45,6 +47,8 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
         location: profile.preferredLocations?.[0],
         limit: 30,
       });
+
+      byProvider[provider.name] = results.length;
 
       for (const job of results) {
         found++;
@@ -66,7 +70,7 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
       }
     }
 
-    return { found, saved, duplicates };
+    return { found, saved, duplicates, byProvider };
   }
 }
 

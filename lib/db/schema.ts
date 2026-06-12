@@ -73,6 +73,8 @@ export const agentStatusEnum = pgEnum("agent_status", [
 export const jobProviderEnum = pgEnum("job_provider", [
   "remoteok",
   "wellfound",
+  "remotive",
+  "arbeitnow",
   "greenhouse",
   "lever",
   "career_page",
