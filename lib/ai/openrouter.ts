@@ -78,7 +78,35 @@ export async function chat({
   return content;
 }
 
+/** Models sometimes wrap JSON in ```json fences despite json_mode. */
+export function parseModelJson<T>(content: string): T {
+  let text = content.trim();
+
+  const fullFence = text.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/i);
+  if (fullFence) {
+    text = fullFence[1].trim();
+  } else {
+    const embedded = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (embedded) {
+      text = embedded[1].trim();
+    }
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    const objectStart = text.indexOf("{");
+    const objectEnd = text.lastIndexOf("}");
+    if (objectStart !== -1 && objectEnd > objectStart) {
+      return JSON.parse(text.slice(objectStart, objectEnd + 1)) as T;
+    }
+    throw new Error(
+      `Model returned invalid JSON. Preview: ${content.slice(0, 160).replace(/\s+/g, " ")}`
+    );
+  }
+}
+
 export async function chatJson<T>(options: ChatOptions): Promise<T> {
   const content = await chat({ ...options, jsonMode: true });
-  return JSON.parse(content) as T;
+  return parseModelJson<T>(content);
 }
