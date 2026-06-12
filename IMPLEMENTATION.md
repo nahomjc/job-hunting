@@ -116,16 +116,15 @@ Add new providers by implementing `JobProviderAdapter` in `lib/jobs/providers/`.
 
 ## Cron Schedule
 
-Vercel limits cron jobs by plan (Hobby: 2). This app uses **one hourly tick** that runs due jobs internally.
+Vercel **Hobby** allows **once-per-day** crons only (hourly deploys fail). Default: one daily tick at **06:00 UTC**.
 
-| Job | Schedule (UTC) | Endpoint (manual / external) |
-|-----|----------------|------------------------------|
-| All due jobs | Hourly via Vercel | `/api/cron/tick` |
-| Search jobs | Every 6 hours | `/api/cron/search-jobs` |
-| Recalculate scores | Daily 2 AM | `/api/cron/recalculate-scores` |
-| Weekly report | Monday 9 AM | `/api/cron/weekly-report` |
+| Job | Hobby (daily tick) | Pro (`CRON_INTERVAL=hourly`) |
+|-----|-------------------|------------------------------|
+| Search jobs | Every day | Every 6 hours |
+| Recalculate scores | Every day | Daily 02:00 UTC |
+| Weekly report | Mondays | Monday 09:00 UTC |
 
-Set `CRON_SECRET`. See [docs/CRON.md](docs/CRON.md) for Vercel limits and external cron setup.
+Endpoint: `/api/cron/tick` · Set `CRON_SECRET` · See [docs/CRON.md](docs/CRON.md).
 
 ## Security
 

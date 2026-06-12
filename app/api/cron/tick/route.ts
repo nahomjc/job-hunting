@@ -5,7 +5,7 @@ import {
   runCronJobs,
   type CronJobName,
 } from "@/lib/cron/jobs";
-import { getScheduledJobs, parseCronJobParam } from "@/lib/cron/scheduler";
+import { getScheduledJobs, getCronInterval, parseCronJobParam } from "@/lib/cron/scheduler";
 
 export const maxDuration = 300;
 
@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       ran: [],
-      message: "No jobs scheduled for this hour (UTC)",
+      interval: getCronInterval(),
+      message: "No jobs scheduled for this tick",
       utc: new Date().toISOString(),
     });
   }
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: results.every((r) => r.ok),
     ran: jobs,
+    interval: getCronInterval(),
     utc: new Date().toISOString(),
     results,
   });
