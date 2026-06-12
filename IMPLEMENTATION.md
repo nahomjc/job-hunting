@@ -114,15 +114,18 @@ npm run dev
 
 Add new providers by implementing `JobProviderAdapter` in `lib/jobs/providers/`.
 
-## Cron Schedule (Vercel)
+## Cron Schedule
 
-| Job | Schedule | Endpoint |
-|-----|----------|----------|
+Vercel limits cron jobs by plan (Hobby: 2). This app uses **one hourly tick** that runs due jobs internally.
+
+| Job | Schedule (UTC) | Endpoint (manual / external) |
+|-----|----------------|------------------------------|
+| All due jobs | Hourly via Vercel | `/api/cron/tick` |
 | Search jobs | Every 6 hours | `/api/cron/search-jobs` |
 | Recalculate scores | Daily 2 AM | `/api/cron/recalculate-scores` |
 | Weekly report | Monday 9 AM | `/api/cron/weekly-report` |
 
-Set `CRON_SECRET` and configure Vercel cron with `Authorization: Bearer <secret>`.
+Set `CRON_SECRET`. See [docs/CRON.md](docs/CRON.md) for Vercel limits and external cron setup.
 
 ## Security
 
