@@ -13,20 +13,30 @@ const DEFAULT_SETTINGS = {
 
 export const notificationSettingsRepository = {
   async getOrCreate(userId: string) {
-    const db = requireDb();
-    const [existing] = await db
-      .select()
-      .from(notificationSettings)
-      .where(eq(notificationSettings.userId, userId))
-      .limit(1);
+    try {
+      const db = requireDb();
+      const [existing] = await db
+        .select()
+        .from(notificationSettings)
+        .where(eq(notificationSettings.userId, userId))
+        .limit(1);
 
-    if (existing) return existing;
+      if (existing) return existing;
 
-    const [created] = await db
-      .insert(notificationSettings)
-      .values({ userId, ...DEFAULT_SETTINGS })
-      .returning();
-    return created;
+      const [created] = await db
+        .insert(notificationSettings)
+        .values({ userId, ...DEFAULT_SETTINGS })
+        .returning();
+      return created;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("telegram_link") || message.includes("notification_settings")) {
+        throw new Error(
+          "Database schema is out of date. Run lib/db/migrations/001-telegram-and-subscriptions.sql in Supabase."
+        );
+      }
+      throw error;
+    }
   },
 
   async update(

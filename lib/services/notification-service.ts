@@ -6,14 +6,24 @@ import { sendTelegramMessage } from "@/lib/telegram/bot";
 import type { Job } from "@/lib/db/schema";
 import type { DashboardStats } from "@/types";
 
-async function getSettings(userId: string) {
-  const db = requireDb();
-  const [settings] = await db
-    .select()
-    .from(notificationSettings)
-    .where(eq(notificationSettings.userId, userId))
-    .limit(1);
-  return settings;
+import type { NotificationSettings } from "@/lib/db/schema";
+
+async function getSettings(userId: string): Promise<NotificationSettings | undefined> {
+  try {
+    const db = requireDb();
+    const [settings] = await db
+      .select()
+      .from(notificationSettings)
+      .where(eq(notificationSettings.userId, userId))
+      .limit(1);
+    return settings;
+  } catch (error) {
+    console.warn(
+      "notification_settings query failed — run lib/db/migrations/001-telegram-and-subscriptions.sql",
+      error
+    );
+    return undefined;
+  }
 }
 
 async function getUserEmail(userId: string) {
