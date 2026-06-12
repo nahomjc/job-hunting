@@ -1,16 +1,23 @@
 import { Header } from "@/components/dashboard/header";
 import { ProfileForm } from "@/components/dashboard/profile-form";
+import { NotificationSettingsForm } from "@/components/dashboard/notification-settings-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthUser } from "@/lib/supabase/server";
 import { profileRepository } from "@/lib/repositories/profile-repository";
+import { getNotificationSettingsAction } from "@/app/actions/notifications";
 
 export default async function SettingsPage() {
   const user = await getAuthUser();
   if (!user) return null;
 
   let profile = null;
+  let notificationSettings = null;
+
   try {
-    profile = await profileRepository.getByUserId(user.id);
+    [profile, notificationSettings] = await Promise.all([
+      profileRepository.getByUserId(user.id),
+      getNotificationSettingsAction(),
+    ]);
   } catch {
     // DB not configured
   }
@@ -33,17 +40,19 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notification Preferences</CardTitle>
+            <CardTitle>Notifications</CardTitle>
             <CardDescription>
-              Email is sent via Brevo. Set BREVO_API_KEY and verify your sender domain.
-              Auth emails (signup, reset password) use Brevo SMTP in Supabase — see docs/BREVO.md.
+              Email (Brevo) and Telegram alerts for matches, interviews, and weekly reports.
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>• High match jobs (score ≥ 80)</p>
-            <p>• Recruiter responses</p>
-            <p>• Interview scheduled</p>
-            <p>• Weekly performance reports</p>
+          <CardContent>
+            {notificationSettings ? (
+              <NotificationSettingsForm initial={notificationSettings} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Connect the database to manage notification preferences.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

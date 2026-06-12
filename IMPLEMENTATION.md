@@ -135,7 +135,7 @@ Set `CRON_SECRET` and configure Vercel cron with `Authorization: Bearer <secret>
 ## Phase 2 Roadmap
 
 - [ ] Redis rate limiting (Upstash)
-- [ ] Telegram bot webhook for chat ID linking
+- [x] Telegram bot webhook for chat ID linking
 - [ ] Preference learning from user actions (save/reject/apply)
 - [ ] PDF resume export
 - [ ] Real-time notifications (Supabase Realtime)

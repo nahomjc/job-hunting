@@ -381,6 +381,8 @@ export const notificationSettings = pgTable("notification_settings", {
   emailEnabled: boolean("email_enabled").default(true),
   telegramEnabled: boolean("telegram_enabled").default(false),
   telegramChatId: text("telegram_chat_id"),
+  telegramLinkCode: text("telegram_link_code"),
+  telegramLinkExpiresAt: timestamp("telegram_link_expires_at", { withTimezone: true }),
   highMatchThreshold: integer("high_match_threshold").default(80),
   notifyHighMatch: boolean("notify_high_match").default(true),
   notifyRecruiterResponse: boolean("notify_recruiter_response").default(true),
@@ -536,6 +538,7 @@ export type Application = typeof applications.$inferSelect;
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
 export type Interview = typeof interviews.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type Resume = typeof resumes.$inferSelect;
 export type AgentExecution = typeof agentExecutions.$inferSelect;
 export type AgentExecutionLog = typeof agentExecutionLogs.$inferSelect;

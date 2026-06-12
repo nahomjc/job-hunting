@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { requireDb, notificationSettings, users } from "@/lib/db";
 import { notificationRepository } from "@/lib/repositories/notification-repository";
 import { sendEmail, isBrevoConfigured } from "@/lib/email/brevo";
+import { sendTelegramMessage } from "@/lib/telegram/bot";
 import type { Job } from "@/lib/db/schema";
 import type { DashboardStats } from "@/types";
 
@@ -49,16 +50,33 @@ async function sendUserEmail(
   return sent;
 }
 
-async function sendTelegram(chatId: string, message: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return false;
+async function sendUserTelegram(
+  userId: string,
+  title: string,
+  body: string,
+  type: "high_match_job" | "recruiter_response" | "interview_scheduled" | "weekly_report",
+  metadata?: Record<string, unknown>
+) {
+  const settings = await getSettings(userId);
+  if (!settings?.telegramEnabled || !settings.telegramChatId) return false;
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
-  });
-  return true;
+  const sent = await sendTelegramMessage(
+    settings.telegramChatId,
+    `<b>${title}</b>\n${body}`
+  );
+
+  if (sent) {
+    await notificationRepository.create({
+      userId,
+      type,
+      channel: "telegram",
+      title,
+      body,
+      metadata,
+      sentAt: new Date(),
+    });
+  }
+  return sent;
 }
 
 export const notificationService = {
@@ -86,22 +104,10 @@ export const notificationService = {
       score,
     });
 
-    if (settings?.telegramEnabled && settings.telegramChatId) {
-      const sent = await sendTelegram(
-        settings.telegramChatId,
-        `<b>${title}</b>\n${body}`
-      );
-      if (sent) {
-        await notificationRepository.create({
-          userId,
-          type: "high_match_job",
-          channel: "telegram",
-          title,
-          body,
-          sentAt: new Date(),
-        });
-      }
-    }
+    await sendUserTelegram(userId, title, body, "high_match_job", {
+      jobId: job.id,
+      score,
+    });
   },
 
   async notifyInterviewScheduled(
@@ -125,6 +131,7 @@ export const notificationService = {
     });
 
     await sendUserEmail(userId, notifTitle, body, "interview_scheduled");
+    await sendUserTelegram(userId, notifTitle, body, "interview_scheduled");
   },
 
   async notifyRecruiterResponse(userId: string, company: string, message: string) {
@@ -142,6 +149,7 @@ export const notificationService = {
     });
 
     await sendUserEmail(userId, title, message, "recruiter_response");
+    await sendUserTelegram(userId, title, message, "recruiter_response");
   },
 
   async notifyWeeklyReport(userId: string, stats: DashboardStats) {
@@ -163,5 +171,6 @@ export const notificationService = {
     });
 
     await sendUserEmail(userId, title, body, "weekly_report", stats as unknown as Record<string, unknown>);
+    await sendUserTelegram(userId, title, body, "weekly_report", stats as unknown as Record<string, unknown>);
   },
 };

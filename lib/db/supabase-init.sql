@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Run on existing databases:
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+-- ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_link_code TEXT;
+-- ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_link_expires_at TIMESTAMPTZ;
 
 -- ─── Subscriptions ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -283,6 +285,8 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   email_enabled             BOOLEAN NOT NULL DEFAULT TRUE,
   telegram_enabled          BOOLEAN NOT NULL DEFAULT FALSE,
   telegram_chat_id          TEXT,
+  telegram_link_code        TEXT,
+  telegram_link_expires_at  TIMESTAMPTZ,
   high_match_threshold      INTEGER NOT NULL DEFAULT 80,
   notify_high_match         BOOLEAN NOT NULL DEFAULT TRUE,
   notify_recruiter_response BOOLEAN NOT NULL DEFAULT TRUE,
