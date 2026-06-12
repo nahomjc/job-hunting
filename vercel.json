@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/search-jobs",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/recalculate-scores",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-report",
+      "schedule": "0 9 * * 1"
+    }
+  ]
+}
