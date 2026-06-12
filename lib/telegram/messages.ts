@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { requireDb, notificationSettings, profiles, users } from "@/lib/db";
+import { requireDb, profiles, users } from "@/lib/db";
 
 export async function getUserDisplayName(userId: string): Promise<string | null> {
   try {
