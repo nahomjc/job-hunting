@@ -1,23 +1,80 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { runAgentTask } from "@/app/actions/agent";
+import type { ManagerTask } from "@/lib/ai/agents/manager-agent";
 import { toast } from "sonner";
 
-export function RunAgentButton() {
+interface RunAgentButtonProps {
+  task?: ManagerTask;
+  label?: string;
+  variant?: "default" | "outline" | "secondary";
+}
+
+interface PipelineResults {
+  search?: { found?: number; saved?: number; duplicates?: number };
+  scoring?: {
+    scored?: number;
+    failed?: number;
+    attempted?: number;
+    highMatches?: number;
+    remaining?: number;
+  };
+}
+
+function formatPipelineMessage(results: PipelineResults): string {
+  const found = results.search?.found ?? 0;
+  const saved = results.search?.saved ?? 0;
+  const scored = results.scoring?.scored ?? 0;
+  const failed = results.scoring?.failed ?? 0;
+  const attempted = results.scoring?.attempted ?? 0;
+
+  if (found === 0 && scored === 0) {
+    return "No jobs found. Check your profile skills and OpenRouter API key, then try again.";
+  }
+
+  if (saved === 0 && scored === 0 && found > 0) {
+    return `Found ${found} jobs (already in database). Scoring ${attempted}… none completed${failed ? ` (${failed} AI errors)` : ""}.`;
+  }
+
+  const parts = [
+    `Found ${found} jobs`,
+    saved > 0 ? `${saved} new saved` : null,
+    scored > 0 ? `${scored} scored` : attempted > 0 ? `0/${attempted} scored` : null,
+    failed > 0 ? `${failed} scoring errors` : null,
+  ].filter(Boolean);
+
+  return parts.join(" · ");
+}
+
+export function RunAgentButton({
+  task = "full_pipeline",
+  label = "Run Job Hunter",
+  variant = "default",
+}: RunAgentButtonProps) {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleRun() {
     setLoading(true);
     try {
-      const result = await runAgentTask("full_pipeline");
-      if (result.success) {
-        toast.success("Job hunt complete! Check your matches.");
+      const result = await runAgentTask(task);
+      if (result.success && result.data) {
+        const results = (result.data as { results?: PipelineResults }).results ?? {};
+        const message = formatPipelineMessage(results);
+
+        if ((results.scoring?.scored ?? 0) > 0 || (results.search?.saved ?? 0) > 0) {
+          toast.success(message);
+        } else {
+          toast.warning(message);
+        }
       } else {
         toast.error(result.error ?? "Agent run failed");
       }
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to run agent");
     } finally {
@@ -26,9 +83,9 @@ export function RunAgentButton() {
   }
 
   return (
-    <Button onClick={handleRun} disabled={loading}>
+    <Button onClick={handleRun} disabled={loading} variant={variant}>
       <Bot className="h-4 w-4" />
-      {loading ? "Hunting..." : "Run Job Hunter"}
+      {loading ? "Hunting..." : label}
     </Button>
   );
 }

@@ -17,8 +17,10 @@ interface JobHunterOutput {
 
 function buildSearchQuery(profile: Profile): string {
   const skills = profile.skills ?? [];
-  const topSkills = skills.slice(0, 3).join(" ");
-  return topSkills || "software engineer";
+  if (skills.length > 0) {
+    return skills.slice(0, 5).join(" ");
+  }
+  return "software engineer developer";
 }
 
 function dedupeKey(job: JobSearchResult): string {
@@ -55,7 +57,7 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
 
         const existing = await jobRepository.findByExternalId(job.provider, job.externalId);
         if (existing) {
-          duplicates++;
+          seen.add(key);
           continue;
         }
 

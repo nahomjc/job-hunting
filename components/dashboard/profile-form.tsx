@@ -9,6 +9,7 @@ import { CvUpload } from "@/components/dashboard/cv-upload";
 import { updateProfile } from "@/app/actions/profile";
 import type { Profile } from "@/lib/db/schema";
 import type { ParsedCvResult } from "@/lib/services/cv-parser-service";
+import { normalizeProfileUrl } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ProfileFormProps {
@@ -23,9 +24,13 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     profile?.yearsOfExperience?.toString() ?? ""
   );
   const [locations, setLocations] = useState((profile?.preferredLocations ?? []).join(", "));
-  const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedinUrl ?? "");
-  const [githubUrl, setGithubUrl] = useState(profile?.githubUrl ?? "");
-  const [portfolioUrl, setPortfolioUrl] = useState(profile?.portfolioUrl ?? "");
+  const [linkedinUrl, setLinkedinUrl] = useState(
+    normalizeProfileUrl(profile?.linkedinUrl)
+  );
+  const [githubUrl, setGithubUrl] = useState(normalizeProfileUrl(profile?.githubUrl));
+  const [portfolioUrl, setPortfolioUrl] = useState(
+    normalizeProfileUrl(profile?.portfolioUrl)
+  );
   const [resumeText, setResumeText] = useState(profile?.resumeText ?? "");
   const [remotePreference, setRemotePreference] = useState<
     "remote" | "hybrid" | "onsite" | "any"
@@ -37,9 +42,9 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     if (data.fullName) setFullName(data.fullName);
     if (data.skills.length) setSkills(data.skills.join(", "));
     if (data.yearsOfExperience) setYearsOfExperience(String(data.yearsOfExperience));
-    if (data.linkedinUrl) setLinkedinUrl(data.linkedinUrl);
-    if (data.githubUrl) setGithubUrl(data.githubUrl);
-    if (data.portfolioUrl) setPortfolioUrl(data.portfolioUrl);
+    if (data.linkedinUrl) setLinkedinUrl(normalizeProfileUrl(data.linkedinUrl));
+    if (data.githubUrl) setGithubUrl(normalizeProfileUrl(data.githubUrl));
+    if (data.portfolioUrl) setPortfolioUrl(normalizeProfileUrl(data.portfolioUrl));
     if (data.resumeContent) setResumeText(data.resumeContent);
   }
 
@@ -56,9 +61,9 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         preferredSalaryMax: Number(salaryMax) || 0,
         preferredLocations: locations.split(",").map((s) => s.trim()).filter(Boolean),
         remotePreference: remotePreference,
-        linkedinUrl,
-        githubUrl,
-        portfolioUrl,
+        linkedinUrl: normalizeProfileUrl(linkedinUrl),
+        githubUrl: normalizeProfileUrl(githubUrl),
+        portfolioUrl: normalizeProfileUrl(portfolioUrl),
         resumeText,
       });
       toast.success("Profile saved!");
@@ -154,27 +159,36 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
             <Input
               id="linkedinUrl"
-              type="url"
+              type="text"
+              inputMode="url"
+              placeholder="https://linkedin.com/in/your-profile"
               value={linkedinUrl}
               onChange={(e) => setLinkedinUrl(e.target.value)}
+              onBlur={(e) => setLinkedinUrl(normalizeProfileUrl(e.target.value))}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="githubUrl">GitHub URL</Label>
             <Input
               id="githubUrl"
-              type="url"
+              type="text"
+              inputMode="url"
+              placeholder="https://github.com/your-username"
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
+              onBlur={(e) => setGithubUrl(normalizeProfileUrl(e.target.value))}
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="portfolioUrl">Portfolio URL</Label>
             <Input
               id="portfolioUrl"
-              type="url"
+              type="text"
+              inputMode="url"
+              placeholder="https://yourportfolio.com"
               value={portfolioUrl}
               onChange={(e) => setPortfolioUrl(e.target.value)}
+              onBlur={(e) => setPortfolioUrl(normalizeProfileUrl(e.target.value))}
             />
           </div>
           <div className="space-y-2 sm:col-span-2">

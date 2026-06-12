@@ -74,14 +74,18 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
     return (await jobHunterAgent.run({ profile }, userId)).data ?? {};
   }
 
-  private async scoreJobs(userId: string, profile: Profile) {
-    const unscored = await jobRepository.findUnscoredForUser(userId);
+  private async scoreJobs(userId: string, profile: Profile, limit = 20) {
+    const unscored = await jobRepository.findUnscoredForUser(userId, limit);
     let scored = 0;
+    let failed = 0;
     const highMatches: string[] = [];
 
     for (const job of unscored) {
       const result = await jobMatchAgent.run({ profile, job }, userId);
-      if (!result.success || !result.data) continue;
+      if (!result.success || !result.data) {
+        failed++;
+        continue;
+      }
 
       await jobMatchRepository.upsert(userId, job.id, result.data);
       scored++;
@@ -92,7 +96,15 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
       }
     }
 
-    return { scored, highMatches: highMatches.length };
+    const remaining = (await jobRepository.findUnscoredForUser(userId, 500)).length;
+
+    return {
+      scored,
+      failed,
+      attempted: unscored.length,
+      highMatches: highMatches.length,
+      remaining,
+    };
   }
 
   private async generateApplication(userId: string, profile: Profile, jobId: string) {

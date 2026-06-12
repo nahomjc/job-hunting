@@ -4,9 +4,11 @@ import { Header } from "@/components/dashboard/header";
 import { JobMatchCard } from "@/components/dashboard/job-match-card";
 import { JobFilters } from "@/components/dashboard/job-filters";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { RunAgentButton } from "@/components/dashboard/run-agent-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthUser } from "@/lib/supabase/server";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
+import { jobRepository } from "@/lib/repositories/job-repository";
 
 interface JobsPageProps {
   searchParams: Promise<{
@@ -20,6 +22,8 @@ interface JobsPageProps {
 async function JobList({
   userId,
   filters,
+  totalJobs,
+  totalMatches,
 }: {
   userId: string;
   filters: {
@@ -28,6 +32,8 @@ async function JobList({
     remote?: boolean;
     location?: string;
   };
+  totalJobs: number;
+  totalMatches: number;
 }) {
   const matches = await jobMatchRepository.findForUser(userId, filters);
 
@@ -35,8 +41,14 @@ async function JobList({
     return (
       <EmptyState
         icon={Briefcase}
-        title="No job matches found"
-        description="Run the job hunter agent or adjust your filters to see more results."
+        title="No job matches yet"
+        description={
+          totalMatches === 0 && totalJobs === 0
+            ? "Click “Search & score jobs” to fetch listings from RemoteOK and AI-score them against your profile. Make sure your profile has skills saved and OPENROUTER_API_KEY is set."
+            : totalMatches === 0 && totalJobs > 0
+              ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs” — scoring uses AI (~20 jobs per run).`
+              : "No matches match your filters. Clear filters or lower the minimum score."
+        }
       />
     );
   }
@@ -62,10 +74,29 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     location: params.location,
   };
 
+  let totalJobs = 0;
+  let totalMatches = 0;
+  try {
+    [totalJobs, totalMatches] = await Promise.all([
+      jobRepository.count(),
+      jobMatchRepository.findForUser(user.id).then((m) => m.length),
+    ]);
+  } catch {
+    // DB not configured
+  }
+
   return (
     <>
       <Header title="Job Matches" description="AI-scored opportunities ranked for you" />
       <div className="flex-1 space-y-6 p-4 md:p-8">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
+          <p className="text-sm text-muted-foreground">
+            {totalMatches > 0
+              ? `${totalMatches} scored matches · ${totalJobs} jobs in database`
+              : "Search job boards, then AI scores each role against your profile."}
+          </p>
+          <RunAgentButton label="Search & score jobs" />
+        </div>
         <Suspense fallback={<Skeleton className="h-16 w-full" />}>
           <JobFilters />
         </Suspense>
@@ -78,7 +109,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             </div>
           }
         >
-          <JobList userId={user.id} filters={filters} />
+          <JobList
+            userId={user.id}
+            filters={filters}
+            totalJobs={totalJobs}
+            totalMatches={totalMatches}
+          />
         </Suspense>
       </div>
     </>

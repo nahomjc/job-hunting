@@ -9,6 +9,7 @@ import { extractTextFromCv } from "@/lib/services/cv-extract";
 import { parseCvWithAi } from "@/lib/services/cv-parser-service";
 import { logAudit } from "@/lib/security/audit";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { normalizeProfileUrl } from "@/lib/utils";
 import type { ParsedCvResult } from "@/lib/services/cv-parser-service";
 
 export interface ParseCvResponse {
@@ -51,11 +52,11 @@ export async function parseAndImportCv(formData: FormData): Promise<ParseCvRespo
   };
 
   if (parsed.fullName) updates.fullName = parsed.fullName;
-  if (parsed.linkedinUrl) updates.linkedinUrl = parsed.linkedinUrl;
+  if (parsed.linkedinUrl) updates.linkedinUrl = normalizeProfileUrl(parsed.linkedinUrl);
   else if (existing?.linkedinUrl) updates.linkedinUrl = existing.linkedinUrl;
-  if (parsed.githubUrl) updates.githubUrl = parsed.githubUrl;
+  if (parsed.githubUrl) updates.githubUrl = normalizeProfileUrl(parsed.githubUrl);
   else if (existing?.githubUrl) updates.githubUrl = existing.githubUrl;
-  if (parsed.portfolioUrl) updates.portfolioUrl = parsed.portfolioUrl;
+  if (parsed.portfolioUrl) updates.portfolioUrl = normalizeProfileUrl(parsed.portfolioUrl);
   else if (existing?.portfolioUrl) updates.portfolioUrl = existing.portfolioUrl;
 
   const profile = await profileRepository.upsert(user.id, updates);

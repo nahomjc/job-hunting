@@ -21,3 +21,15 @@ export function formatSalary(min?: number | null, max?: number | null, currency 
 export function formatPercent(value: number) {
   return `${Math.round(value)}%`;
 }
+
+/** Ensures profile links work with HTML validation and external links (adds https:// if missing). */
+export function normalizeProfileUrl(value: string | undefined | null): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+}

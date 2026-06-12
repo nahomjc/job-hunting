@@ -6,6 +6,7 @@ import { profileRepository } from "@/lib/repositories/profile-repository";
 import { userService } from "@/lib/services/user-service";
 import { logAudit } from "@/lib/security/audit";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { normalizeProfileUrl } from "@/lib/utils";
 import type { ProfileFormData } from "@/types";
 
 export async function updateProfile(data: ProfileFormData) {
@@ -16,7 +17,12 @@ export async function updateProfile(data: ProfileFormData) {
   if (!limit.success) throw new Error("Rate limit exceeded");
 
   await userService.syncFromAuth(user);
-  const profile = await profileRepository.upsert(user.id, data);
+  const profile = await profileRepository.upsert(user.id, {
+    ...data,
+    linkedinUrl: normalizeProfileUrl(data.linkedinUrl),
+    githubUrl: normalizeProfileUrl(data.githubUrl),
+    portfolioUrl: normalizeProfileUrl(data.portfolioUrl),
+  });
 
   await logAudit({
     userId: user.id,

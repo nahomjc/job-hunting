@@ -13,7 +13,7 @@ export class WellfoundProvider implements JobProviderAdapter {
     try {
       const res = await fetch(url, {
         headers: { "User-Agent": "JobHunter-AI/1.0" },
-        next: { revalidate: 3600 },
+        cache: "no-store",
       });
 
       if (!res.ok) return [];

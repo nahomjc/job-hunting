@@ -3,6 +3,7 @@ import {
   getPrompt,
   interpolateTemplate,
 } from "@/lib/ai/prompts/prompt-service";
+import { normalizeProfileUrl } from "@/lib/utils";
 
 export interface ParsedCvResult {
   fullName: string;
@@ -36,8 +37,8 @@ export async function parseCvWithAi(rawText: string): Promise<ParsedCvResult> {
     yearsOfExperience: Number(result.yearsOfExperience) || 0,
     summary: result.summary ?? "",
     resumeContent: result.resumeContent ?? rawText,
-    linkedinUrl: result.linkedinUrl ?? "",
-    githubUrl: result.githubUrl ?? "",
-    portfolioUrl: result.portfolioUrl ?? "",
+    linkedinUrl: normalizeProfileUrl(result.linkedinUrl),
+    githubUrl: normalizeProfileUrl(result.githubUrl),
+    portfolioUrl: normalizeProfileUrl(result.portfolioUrl),
   };
 }
