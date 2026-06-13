@@ -2,10 +2,19 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Briefcase, Building2, Radar } from "lucide-react";
+import { Briefcase, Building2, Radar, type LucideIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const TAB_CONFIG = [
+export type HuntJobsPageTab = "results" | "search" | "leads";
+
+interface TabConfigItem {
+  value: HuntJobsPageTab;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+}
+
+const JOBS_TAB_CONFIG: TabConfigItem[] = [
   {
     value: "results",
     label: "Results",
@@ -22,29 +31,50 @@ const TAB_CONFIG = [
     value: "leads",
     label: "Business leads",
     icon: Building2,
-    description: "Companies without websites — pitch web or marketing services.",
+    description: "Local companies without websites — pitch web or marketing services.",
   },
-] as const;
+];
 
-export type JobsPageTab = (typeof TAB_CONFIG)[number]["value"];
+const HUNT_TAB_CONFIG: TabConfigItem[] = [
+  {
+    value: "results",
+    label: "Results",
+    icon: Briefcase,
+    description: "Country hunt results — sort, filter, and investigate employers.",
+  },
+  {
+    value: "search",
+    label: "Country hunt",
+    icon: Radar,
+    description: "Run a country-targeted scan across job boards, then AI-score matches.",
+  },
+  {
+    value: "leads",
+    label: "Business leads",
+    icon: Building2,
+    description: "Scan maps in your hunt country for local businesses that need a website.",
+  },
+];
 
-const VALID_TABS = new Set<string>(TAB_CONFIG.map((t) => t.value));
+const VALID_TABS = new Set<string>(["results", "search", "leads"]);
 
-function parseTab(value: string | null): JobsPageTab {
-  if (value && VALID_TABS.has(value)) return value as JobsPageTab;
+function parseTab(value: string | null): HuntJobsPageTab {
+  if (value && VALID_TABS.has(value)) return value as HuntJobsPageTab;
   return "results";
 }
 
-interface JobsPageTabsProps {
+interface HuntJobsPageTabsProps {
+  basePath: "/dashboard/jobs" | "/dashboard/hunt";
   results: ReactNode;
   search: ReactNode;
   leads: ReactNode;
 }
 
-export function JobsPageTabs({ results, search, leads }: JobsPageTabsProps) {
+export function HuntJobsPageTabs({ basePath, results, search, leads }: HuntJobsPageTabsProps) {
+  const tabConfig = basePath === "/dashboard/hunt" ? HUNT_TAB_CONFIG : JOBS_TAB_CONFIG;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<JobsPageTab>(() => parseTab(searchParams.get("tab")));
+  const [tab, setTab] = useState<HuntJobsPageTab>(() => parseTab(searchParams.get("tab")));
 
   useEffect(() => {
     setTab(parseTab(searchParams.get("tab")));
@@ -58,20 +88,18 @@ export function JobsPageTabs({ results, search, leads }: JobsPageTabsProps) {
       if (next === "results") params.delete("tab");
       else params.set("tab", next);
       const query = params.toString();
-      router.replace(query ? `/dashboard/jobs?${query}` : "/dashboard/jobs", {
-        scroll: false,
-      });
+      router.replace(query ? `${basePath}?${query}` : basePath, { scroll: false });
     },
-    [router, searchParams]
+    [basePath, router, searchParams]
   );
 
-  const active = TAB_CONFIG.find((t) => t.value === tab) ?? TAB_CONFIG[0];
+  const active = tabConfig.find((t) => t.value === tab) ?? tabConfig[0];
 
   return (
     <div className="space-y-6">
       <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList className="grid w-full grid-cols-3 gap-1">
-          {TAB_CONFIG.map(({ value, label, icon: Icon }) => (
+          {tabConfig.map(({ value, label, icon: Icon }) => (
             <TabsTrigger key={value} value={value} className="min-w-0 px-2 sm:px-3">
               <Icon className="h-4 w-4 shrink-0" />
               <span className="truncate text-xs sm:text-sm">{label}</span>
@@ -97,3 +125,8 @@ export function JobsPageTabs({ results, search, leads }: JobsPageTabsProps) {
     </div>
   );
 }
+
+/** @deprecated Use HuntJobsPageTabs */
+export const JobsPageTabs = HuntJobsPageTabs;
+
+export type JobsPageTab = HuntJobsPageTab;

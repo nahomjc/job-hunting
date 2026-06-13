@@ -620,6 +620,7 @@ export function HuntPipelinePanel(
       variant="hunt"
       basePath="/dashboard/hunt"
       resultsAnchorId="hunt-results"
+      onCompleteTab="results"
     />
   );
 }

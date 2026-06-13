@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
 import { JobSearchPipelinePanel } from "@/components/dashboard/hunt-pipeline-panel";
 import { HuntBusinessLeadsPanel } from "@/components/dashboard/hunt-business-leads-panel";
-import { JobsPageTabs } from "@/components/dashboard/jobs-page-tabs";
+import { HuntJobsPageTabs } from "@/components/dashboard/jobs-page-tabs";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
 import { JobsSortBar } from "@/components/jobs/jobs-sort-bar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
@@ -62,7 +62,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             </div>
           }
         >
-          <JobsPageTabs
+          <HuntJobsPageTabs
+            basePath="/dashboard/jobs"
           results={
             <section id="jobs-results" className="scroll-mt-24 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
