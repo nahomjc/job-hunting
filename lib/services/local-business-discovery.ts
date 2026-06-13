@@ -7,7 +7,7 @@ export interface LocalBusinessCandidate {
   category: string;
   address?: string;
   location: string;
-  source: "google" | "osm";
+  source: "osm";
   listingUrl: string;
   listedWebsite?: string;
   rawData?: Record<string, unknown>;
@@ -40,7 +40,21 @@ const COUNTRY_META: Record<string, { name: string; capital: string }> = {
 };
 
 const DEFAULT_TARGET_LEADS = 5;
-const DEFAULT_MAX_CANDIDATES = 45;
+const DEFAULT_MAX_CANDIDATES = 60;
+const NOMINATIM_DELAY_MS = 1100;
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+
+const NOMINATIM_HEADERS = {
+  "User-Agent": "JobHunter-AI/1.0 (local business lead discovery)",
+  Accept: "application/json",
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function dedupeCandidates(candidates: LocalBusinessCandidate[]): LocalBusinessCandidate[] {
   const seen = new Set<string>();
@@ -57,73 +71,109 @@ function buildAnalysisNote(
   status: WebsiteStatus
 ): string {
   if (status === "missing") {
-    return `${candidate.category} in ${candidate.location} — no website found in maps listing or domain guess. Strong fit for web/design outreach.`;
+    return `${candidate.category} in ${candidate.location} — no website found on OpenStreetMap or via domain check. Strong fit for web/design outreach.`;
   }
-  return `${candidate.category} — listed site unreachable or low web presence. Good candidate for a website refresh or marketing pitch.`;
+  return `${candidate.category} — listed site unreachable or weak web presence. Good candidate for a website refresh or marketing pitch.`;
 }
 
-async function searchGooglePlaces(
+function osmListingUrl(lat?: number, lon?: number, osmType?: string, osmId?: number) {
+  if (lat != null && lon != null) {
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
+  }
+  if (osmType && osmId) {
+    return `https://www.openstreetmap.org/${osmType}/${osmId}`;
+  }
+  return "https://www.openstreetmap.org";
+}
+
+interface GeoPoint {
+  lat: number;
+  lon: number;
+}
+
+async function geocodeCapital(city: string, country: string): Promise<GeoPoint | null> {
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("city", city);
+    url.searchParams.set("country", country);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("limit", "1");
+
+    const res = await fetch(url.toString(), {
+      headers: NOMINATIM_HEADERS,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
+    const hit = data[0];
+    if (!hit?.lat || !hit?.lon) return null;
+    return { lat: Number(hit.lat), lon: Number(hit.lon) };
+  } catch {
+    return null;
+  }
+}
+
+interface NominatimPlace {
+  place_id?: number;
+  name?: string;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  type?: string;
+  class?: string;
+  extratags?: Record<string, string>;
+}
+
+async function searchNominatim(
   countryCode: string,
-  apiKey: string
+  queries: string[]
 ): Promise<LocalBusinessCandidate[]> {
   const meta = COUNTRY_META[countryCode];
   if (!meta) return [];
 
   const countryLabel = getCountryLabel(countryCode);
-  const queries = [
-    `hotels in ${meta.capital} ${meta.name}`,
-    `restaurants in ${meta.capital} ${meta.name}`,
-    `shops in ${meta.capital} ${meta.name}`,
-  ];
-
   const results: LocalBusinessCandidate[] = [];
 
-  for (const textQuery of queries) {
+  for (const query of queries) {
+    await sleep(NOMINATIM_DELAY_MS);
     try {
-      const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.types,places.googleMapsUri",
-        },
-        body: JSON.stringify({ textQuery, maxResultCount: 12 }),
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.set("q", query);
+      url.searchParams.set("countrycodes", countryCode.toLowerCase());
+      url.searchParams.set("format", "json");
+      url.searchParams.set("limit", "15");
+      url.searchParams.set("addressdetails", "1");
+      url.searchParams.set("extratags", "1");
+
+      const res = await fetch(url.toString(), {
+        headers: NOMINATIM_HEADERS,
         cache: "no-store",
       });
-
       if (!res.ok) continue;
 
-      const data = (await res.json()) as {
-        places?: Array<{
-          id?: string;
-          displayName?: { text?: string };
-          formattedAddress?: string;
-          websiteUri?: string;
-          googleMapsUri?: string;
-          types?: string[];
-        }>;
-      };
-
-      for (const place of data.places ?? []) {
-        const name = place.displayName?.text?.trim();
+      const places = (await res.json()) as NominatimPlace[];
+      for (const place of places) {
+        const name =
+          place.name?.trim() ||
+          place.display_name?.split(",")[0]?.trim();
         if (!name) continue;
 
-        const types = place.types ?? [];
-        const category =
-          types.find((t) => !t.startsWith("point_of_interest") && t !== "establishment") ??
-          types[0] ??
-          "local business";
+        const lat = place.lat ? Number(place.lat) : undefined;
+        const lon = place.lon ? Number(place.lon) : undefined;
+        const category = place.type ?? place.class ?? "local business";
+        const listedWebsite =
+          place.extratags?.website ?? place.extratags?.["contact:website"];
 
         results.push({
-          id: `google-${place.id ?? name}`,
+          id: `nominatim-${place.place_id ?? name}`,
           name,
-          category: category.replace(/_/g, " "),
-          address: place.formattedAddress,
-          location: place.formattedAddress ?? `${meta.capital}, ${countryLabel}`,
-          source: "google",
-          listingUrl: place.googleMapsUri ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + " " + meta.capital)}`,
-          listedWebsite: place.websiteUri,
+          category: String(category).replace(/_/g, " "),
+          address: place.display_name,
+          location: place.display_name ?? `${meta.capital}, ${countryLabel}`,
+          source: "osm",
+          listingUrl: osmListingUrl(lat, lon),
+          listedWebsite,
           rawData: place as unknown as Record<string, unknown>,
         });
       }
@@ -135,7 +185,99 @@ async function searchGooglePlaces(
   return results;
 }
 
-async function searchOpenStreetMap(countryCode: string): Promise<LocalBusinessCandidate[]> {
+type OverpassElement = {
+  id: number;
+  type: string;
+  tags?: Record<string, string>;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+};
+
+async function runOverpass(query: string): Promise<OverpassElement[]> {
+  const body = `data=${encodeURIComponent(query)}`;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+
+      const data = (await res.json()) as { elements?: OverpassElement[] };
+      return data.elements ?? [];
+    } catch {
+      continue;
+    }
+  }
+
+  return [];
+}
+
+function mapOverpassElements(
+  elements: OverpassElement[],
+  countryLabel: string,
+  defaultCity?: string
+): LocalBusinessCandidate[] {
+  const results: LocalBusinessCandidate[] = [];
+
+  for (const el of elements) {
+    const tags = el.tags ?? {};
+    const name = tags.name?.trim();
+    if (!name) continue;
+
+    const lat = el.lat ?? el.center?.lat;
+    const lon = el.lon ?? el.center?.lon;
+    const street = [tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" ");
+    const city = tags["addr:city"] ?? defaultCity ?? "";
+    const address = street ? `${street}${city ? `, ${city}` : ""}` : city;
+    const category =
+      tags.tourism ?? tags.amenity ?? tags.shop ?? tags.office ?? "local business";
+    const osmType = el.type === "node" ? "node" : "way";
+
+    results.push({
+      id: `osm-${el.type}-${el.id}`,
+      name,
+      category: String(category).replace(/_/g, " "),
+      address: address || undefined,
+      location: address ? `${address}, ${countryLabel}` : countryLabel,
+      source: "osm",
+      listingUrl: osmListingUrl(lat, lon, osmType, el.id),
+      listedWebsite: tags.website ?? tags["contact:website"],
+      rawData: { tags, lat, lon },
+    });
+  }
+
+  return results;
+}
+
+async function searchOpenStreetMapAroundCity(
+  countryCode: string,
+  point: GeoPoint
+): Promise<LocalBusinessCandidate[]> {
+  const meta = COUNTRY_META[countryCode];
+  if (!meta) return [];
+
+  const countryLabel = getCountryLabel(countryCode);
+  const { lat, lon } = point;
+  const query = `
+[out:json][timeout:25];
+(
+  nwr["tourism"~"hotel|motel|guest_house|hostel"](around:20000,${lat},${lon});
+  nwr["amenity"~"restaurant|cafe|bar|fast_food|pharmacy|dentist|clinic|bank"](around:20000,${lat},${lon});
+  nwr["shop"](around:20000,${lat},${lon});
+);
+out center 80;
+`;
+
+  const rows = await runOverpass(query);
+  return mapOverpassElements(rows, countryLabel, meta.capital);
+}
+
+async function searchOpenStreetMapCountry(countryCode: string): Promise<LocalBusinessCandidate[]> {
   const meta = COUNTRY_META[countryCode];
   if (!meta) return [];
 
@@ -148,69 +290,11 @@ area["ISO3166-1"="${countryCode}"][admin_level=2]->.country;
   nwr["amenity"~"restaurant|cafe|bar|fast_food|pharmacy|dentist|clinic"](area.country);
   nwr["shop"](area.country);
 );
-out center 60;
+out center 80;
 `;
 
-  try {
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-      cache: "no-store",
-    });
-
-    if (!res.ok) return [];
-
-    const data = (await res.json()) as {
-      elements?: Array<{
-        id: number;
-        type: string;
-        tags?: Record<string, string>;
-        lat?: number;
-        lon?: number;
-        center?: { lat: number; lon: number };
-      }>;
-    };
-
-    const results: LocalBusinessCandidate[] = [];
-
-    for (const el of data.elements ?? []) {
-      const tags = el.tags ?? {};
-      const name = tags.name?.trim();
-      if (!name) continue;
-
-      const lat = el.lat ?? el.center?.lat;
-      const lon = el.lon ?? el.center?.lon;
-      const street = [tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" ");
-      const city = tags["addr:city"] ?? meta.capital;
-      const address = street ? `${street}, ${city}` : city;
-
-      const category =
-        tags.tourism ?? tags.amenity ?? tags.shop ?? tags.office ?? "local business";
-
-      const listedWebsite = tags.website ?? tags["contact:website"];
-      const osmType = el.type === "node" ? "node" : "way";
-
-      results.push({
-        id: `osm-${el.type}-${el.id}`,
-        name,
-        category: String(category).replace(/_/g, " "),
-        address,
-        location: `${address}, ${countryLabel}`,
-        source: "osm",
-        listingUrl:
-          lat && lon
-            ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`
-            : `https://www.openstreetmap.org/${osmType}/${el.id}`,
-        listedWebsite,
-        rawData: { tags, lat, lon },
-      });
-    }
-
-    return results;
-  } catch {
-    return [];
-  }
+  const rows = await runOverpass(query);
+  return mapOverpassElements(rows, countryLabel, meta.capital);
 }
 
 async function evaluateCandidate(
@@ -245,6 +329,7 @@ async function evaluateCandidate(
   };
 }
 
+/** Free local discovery — OpenStreetMap + Nominatim only (no Google API key). */
 export async function discoverLocalBusinessLeads(
   countryCode: string,
   options?: { targetLeads?: number; maxCandidates?: number }
@@ -256,17 +341,37 @@ export async function discoverLocalBusinessLeads(
     throw new Error("Hunt country is required for local business discovery.");
   }
 
-  if (!COUNTRY_META[countryCode]) {
+  const meta = COUNTRY_META[countryCode];
+  if (!meta) {
     throw new Error(`Local business scan is not configured for ${getCountryLabel(countryCode)} yet.`);
   }
 
-  const googleKey = process.env.GOOGLE_PLACES_API_KEY;
-  const [googleResults, osmResults] = await Promise.all([
-    googleKey ? searchGooglePlaces(countryCode, googleKey) : Promise.resolve([]),
-    searchOpenStreetMap(countryCode),
+  const capital = meta.capital;
+  const countryName = meta.name;
+
+  const nominatimQueries = [
+    `hotel ${capital}`,
+    `restaurant ${capital}`,
+    `cafe ${capital}`,
+    `guest house ${capital}`,
+    `shop ${capital}`,
+  ];
+
+  const geo = await geocodeCapital(capital, countryName);
+  await sleep(NOMINATIM_DELAY_MS);
+
+  const [nominatimResults, cityOsmResults, countryOsmResults] = await Promise.all([
+    searchNominatim(countryCode, nominatimQueries),
+    geo ? searchOpenStreetMapAroundCity(countryCode, geo) : Promise.resolve([]),
+    searchOpenStreetMapCountry(countryCode),
   ]);
 
-  const candidates = dedupeCandidates([...googleResults, ...osmResults]).slice(0, maxCandidates);
+  const candidates = dedupeCandidates([
+    ...cityOsmResults,
+    ...nominatimResults,
+    ...countryOsmResults,
+  ]).slice(0, maxCandidates);
+
   const leads: LocalBusinessLead[] = [];
 
   for (const candidate of candidates) {

@@ -70,11 +70,9 @@ export function HuntBusinessLeadsPanel({
               <h3 className="text-sm font-semibold">Local business leads</h3>
             </div>
             <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
-              Scans <strong>Google Maps</strong> and <strong>OpenStreetMap</strong> for hotels,
-              restaurants, and local shops in{" "}
-              <strong>{countryLabel}</strong> — independent of job board results. Finds up to{" "}
-              <strong>5 companies</strong> with no working website, then you can{" "}
-              <strong>Investigate</strong> to draft a pitch.
+              100% <strong>free</strong> — uses <strong>OpenStreetMap</strong> (no Google API key).
+              Finds hotels, restaurants, and shops in <strong>{countryLabel}</strong>, then checks
+              which ones have no working website. Returns up to <strong>5 leads</strong> per scan.
             </p>
           </div>
           <Button
@@ -112,7 +110,7 @@ export function HuntBusinessLeadsPanel({
             <Building2 className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
             <p className="text-sm text-muted-foreground">
               {canScan
-                ? `Search local businesses in ${countryLabel} on maps — no job hunt required. First scan returns up to 5 companies that likely need a website.`
+                ? `Search local businesses in ${countryLabel} via free OpenStreetMap data — no API key or job hunt required.`
                 : "Choose a hunt country first, then scan for local business leads."}
             </p>
           </div>
@@ -132,7 +130,7 @@ export function HuntBusinessLeadsPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium text-sm truncate">{lead.company}</p>
                     <Badge variant="outline" className="text-[10px] capitalize">
-                      {lead.source === "google" ? "Google Maps" : "OpenStreetMap"}
+                      OpenStreetMap
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground capitalize">{lead.category}</p>

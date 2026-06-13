@@ -21,7 +21,7 @@ export interface BusinessLeadResult {
   category: string;
   websiteStatus: WebsiteStatus;
   jobUrl: string;
-  source: "google" | "osm";
+  source: "osm";
   analysisNote: string;
   countryLabel: string;
 }
@@ -35,7 +35,7 @@ async function persistLeadJob(lead: LocalBusinessLead, countryLabel: string) {
     description: [
       lead.analysisNote,
       lead.address ? `Address: ${lead.address}` : null,
-      `Discovered via ${lead.source === "google" ? "Google Maps" : "OpenStreetMap"} in ${countryLabel}.`,
+      `Discovered via OpenStreetMap in ${countryLabel}.`,
     ]
       .filter(Boolean)
       .join("\n\n"),
