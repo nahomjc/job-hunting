@@ -22,11 +22,16 @@ import type { LastHuntSummary } from "@/lib/hunt/last-run";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-interface HuntPipelinePanelProps {
-  countryLabel: string;
-  modeLabel: string;
+export type PipelineVariant = "hunt" | "global";
+
+export interface JobSearchPipelinePanelProps {
+  variant: PipelineVariant;
   providerCount: number;
   lastRun: LastHuntSummary | null;
+  basePath: string;
+  resultsAnchorId: string;
+  countryLabel?: string;
+  modeLabel?: string;
 }
 
 type StepState = "pending" | "active" | "complete" | "error";
@@ -53,6 +58,41 @@ interface PipelineResults {
 
 const POLL_MS = 1200;
 
+const COPY = {
+  hunt: {
+    title: "Country hunt pipeline",
+    subtitle: "Live progress across scan → filter → AI scoring",
+    runningStatus: "Hunting…",
+    runningButton: "Hunting in progress…",
+    startButton: "Start country hunt",
+    againButton: "Run again",
+    prepareLabel: "Prepare hunt",
+    filterLabel: "Filter by region",
+    previousRun: "Previous hunt",
+    failToast: "Hunt failed",
+    failRun: "Failed to run hunt",
+    emptyWarning:
+      "Hunt finished but no new jobs were found. Try another country or broader mode.",
+    completePrefix: "Hunt complete",
+  },
+  global: {
+    title: "Job search pipeline",
+    subtitle: "Live progress across scan → preferences → AI scoring",
+    runningStatus: "Searching…",
+    runningButton: "Search in progress…",
+    startButton: "Search & score jobs",
+    againButton: "Search again",
+    prepareLabel: "Prepare search",
+    filterLabel: "Apply preferences",
+    previousRun: "Previous search",
+    failToast: "Search failed",
+    failRun: "Failed to run search",
+    emptyWarning:
+      "Search finished but no new jobs were found. Check your profile skills and try again.",
+    completePrefix: "Search complete",
+  },
+} as const;
+
 function stepIcon(state: StepState) {
   if (state === "complete") return CheckCircle2;
   if (state === "error") return XCircle;
@@ -61,6 +101,7 @@ function stepIcon(state: StepState) {
 }
 
 function buildSteps(
+  variant: PipelineVariant,
   phase: "idle" | "running" | "complete" | "error",
   hunter: ActivityAgent | null,
   matcher: ActivityAgent | null,
@@ -69,6 +110,7 @@ function buildSteps(
   results: PipelineResults | null,
   providerCount: number
 ): PipelineStep[] {
+  const copy = COPY[variant];
   const hunterRunning = hunter?.status === "running";
   const matcherRunning = matcher?.status === "running";
   const hunterDone = hunter?.status === "completed" || phase === "complete";
@@ -124,16 +166,38 @@ function buildSteps(
     ? Object.keys(results.search.byProvider).length
     : providerCount;
 
+  const prepareIdle =
+    variant === "hunt"
+      ? `${countryLabel} · ${modeLabel}`
+      : "Skills, salary & remote preferences from your profile";
+
+  const filterIdle =
+    variant === "hunt"
+      ? "Remote in country or on-site local"
+      : "Remote preference, locations & role fit";
+
+  const filterActive =
+    variant === "hunt"
+      ? hunter?.latestMessage?.includes("Targeting")
+        ? hunter.latestMessage
+        : `Applying ${modeLabel.toLowerCase()} filter for ${countryLabel}`
+      : (hunter?.latestMessage ?? "Matching jobs to your profile preferences…");
+
+  const filterDone =
+    variant === "hunt"
+      ? `Roles matching ${countryLabel} and hunt mode`
+      : "Listings aligned with your profile settings";
+
   return [
     {
       id: "prepare",
-      label: "Prepare hunt",
+      label: copy.prepareLabel,
       icon: Sparkles,
       state: prepareState,
       detail:
         prepareState === "active"
-          ? "Loading profile & hunt settings…"
-          : `${countryLabel} · ${modeLabel}`,
+          ? "Loading profile & search settings…"
+          : prepareIdle,
     },
     {
       id: "scan",
@@ -149,17 +213,15 @@ function buildSteps(
     },
     {
       id: "filter",
-      label: "Filter by region",
+      label: copy.filterLabel,
       icon: Filter,
       state: filterState,
       detail:
         filterState === "active"
-          ? (hunter?.latestMessage?.includes("Targeting")
-              ? hunter.latestMessage
-              : `Applying ${modeLabel.toLowerCase()} filter for ${countryLabel}`)
+          ? filterActive
           : hunterDone
-            ? `Roles matching ${countryLabel} and hunt mode`
-            : "Remote in country or on-site local",
+            ? filterDone
+            : filterIdle,
     },
     {
       id: "score",
@@ -176,7 +238,11 @@ function buildSteps(
   ];
 }
 
-function overallProgress(steps: PipelineStep[], hunter: ActivityAgent | null, matcher: ActivityAgent | null) {
+function overallProgress(
+  steps: PipelineStep[],
+  hunter: ActivityAgent | null,
+  matcher: ActivityAgent | null
+) {
   if (matcher?.status === "completed") return 100;
   if (matcher?.status === "running") return Math.min(98, 72 + (matcher.progress ?? 0) * 0.28);
   if (hunter?.status === "completed") return 68;
@@ -185,12 +251,16 @@ function overallProgress(steps: PipelineStep[], hunter: ActivityAgent | null, ma
   return Math.round((completed / steps.length) * 100);
 }
 
-export function HuntPipelinePanel({
-  countryLabel,
-  modeLabel,
+export function JobSearchPipelinePanel({
+  variant,
   providerCount,
   lastRun,
-}: HuntPipelinePanelProps) {
+  basePath,
+  resultsAnchorId,
+  countryLabel = "Any country",
+  modeLabel = "Any",
+}: JobSearchPipelinePanelProps) {
+  const copy = COPY[variant];
   const router = useRouter();
   const [phase, setPhase] = useState<"idle" | "running" | "complete" | "error">("idle");
   const [hunter, setHunter] = useState<ActivityAgent | null>(null);
@@ -221,6 +291,7 @@ export function HuntPipelinePanel({
   useEffect(() => () => stopPolling(), [stopPolling]);
 
   const steps = buildSteps(
+    variant,
     phase,
     hunter,
     matcher,
@@ -251,28 +322,39 @@ export function HuntPipelinePanel({
         setPhase("complete");
 
         const found = pipeline.search?.found ?? 0;
+        const saved = pipeline.search?.saved ?? 0;
         const scored = pipeline.scoring?.scored ?? 0;
         if (found > 0 || scored > 0) {
-          toast.success(`Hunt complete — ${found} found, ${scored} scored`);
+          toast.success(
+            `${copy.completePrefix} — ${found} found${saved > 0 ? `, ${saved} new` : ""}, ${scored} scored`
+          );
         } else {
-          toast.warning("Hunt finished but no new jobs were found. Try another country or broader mode.");
+          toast.warning(copy.emptyWarning);
         }
+
+        const params = new URLSearchParams(window.location.search);
+        if (variant === "hunt") {
+          params.delete("country");
+          params.delete("huntMode");
+        }
+        params.set("sort", "date");
+        router.push(`${basePath}?${params.toString()}#${resultsAnchorId}`);
       } else {
         setPhase("error");
-        toast.error(result.error ?? "Hunt failed");
+        toast.error(result.error ?? copy.failToast);
       }
       router.refresh();
     } catch (err) {
       stopPolling();
       setPhase("error");
-      toast.error(err instanceof Error ? err.message : "Failed to run hunt");
+      toast.error(err instanceof Error ? err.message : copy.failRun);
     }
   }
 
   const isRunning = phase === "running";
   const statusLabel =
     phase === "running"
-      ? "Hunting…"
+      ? copy.runningStatus
       : phase === "complete"
         ? "Complete"
         : phase === "error"
@@ -294,15 +376,13 @@ export function HuntPipelinePanel({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Country hunt pipeline</h3>
+            <h3 className="text-sm font-semibold">{copy.title}</h3>
             <Badge variant={statusVariant} className="text-[10px] uppercase tracking-wide">
               {isRunning && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
               {statusLabel}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Live progress across scan → filter → AI scoring
-          </p>
+          <p className="text-xs text-muted-foreground">{copy.subtitle}</p>
         </div>
         <Button
           onClick={handleRun}
@@ -314,12 +394,12 @@ export function HuntPipelinePanel({
           {isRunning ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Hunting in progress…
+              {copy.runningButton}
             </>
           ) : (
             <>
               <Radar className="h-4 w-4" />
-              {phase === "complete" ? "Run again" : "Start country hunt"}
+              {phase === "complete" ? copy.againButton : copy.startButton}
             </>
           )}
         </Button>
@@ -328,7 +408,9 @@ export function HuntPipelinePanel({
       <div className="px-5 py-4 space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{isRunning ? "Processing…" : phase === "complete" ? "Last run" : "Pipeline status"}</span>
+            <span>
+              {isRunning ? "Processing…" : phase === "complete" ? "Last run" : "Pipeline status"}
+            </span>
             <span className="tabular-nums font-medium text-foreground">{progress}%</span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -384,20 +466,18 @@ export function HuntPipelinePanel({
           })}
         </ol>
 
-        {(isRunning && (hunter?.latestMessage || matcher?.latestMessage)) && (
+        {isRunning && (hunter?.latestMessage || matcher?.latestMessage) && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
             <p className="text-[11px] font-medium text-primary mb-0.5">Live agent log</p>
             <p className="text-xs font-mono text-foreground/80 line-clamp-2">
-              {matcher?.status === "running"
-                ? matcher.latestMessage
-                : hunter?.latestMessage}
+              {matcher?.status === "running" ? matcher.latestMessage : hunter?.latestMessage}
             </p>
           </div>
         )}
 
         {phase === "idle" && lastRun && lastRun.status === "completed" && (
           <p className="text-xs text-muted-foreground border-t border-border/50 pt-3">
-            Previous hunt
+            {copy.previousRun}
             {lastRun.completedAt ? ` · ${formatRelativeTime(lastRun.completedAt)}` : ""}
             {" · "}
             {lastRun.found} found
@@ -408,5 +488,22 @@ export function HuntPipelinePanel({
         )}
       </div>
     </div>
+  );
+}
+
+/** Country-focused pipeline (Local Job Hunt). */
+export function HuntPipelinePanel(
+  props: Omit<JobSearchPipelinePanelProps, "variant" | "basePath" | "resultsAnchorId"> & {
+    countryLabel: string;
+    modeLabel: string;
+  }
+) {
+  return (
+    <JobSearchPipelinePanel
+      {...props}
+      variant="hunt"
+      basePath="/dashboard/hunt"
+      resultsAnchorId="hunt-results"
+    />
   );
 }

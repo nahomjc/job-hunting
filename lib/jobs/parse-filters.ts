@@ -1,6 +1,6 @@
 import type { Profile } from "@/lib/db/schema";
 import { getHuntPreferences, type HuntMode } from "@/lib/jobs/hunt-preferences";
-import type { CompanySize, ExperienceLevel, JobMatchFilters, RemoteFilter } from "@/types";
+import type { CompanySize, ExperienceLevel, JobMatchFilters, JobSortBy, RemoteFilter } from "@/types";
 
 function parseRemoteFilter(remoteParam?: string): RemoteFilter {
   if (remoteParam === "true" || remoteParam === "remote") return "remote";
@@ -12,6 +12,10 @@ function parseRemoteFilter(remoteParam?: string): RemoteFilter {
 function parseHuntMode(value?: string): HuntMode | undefined {
   if (value === "remote" || value === "onsite" || value === "any") return value;
   return undefined;
+}
+
+function parseSort(value?: string): JobSortBy {
+  return value === "score" ? "score" : "date";
 }
 
 export function parseJobFilters(params: Record<string, string | undefined>): JobMatchFilters {
@@ -29,6 +33,20 @@ export function parseJobFilters(params: Record<string, string | undefined>): Job
     experienceLevel: (params.experienceLevel as ExperienceLevel) || undefined,
     huntCountry: params.country || undefined,
     huntMode: parseHuntMode(params.huntMode),
+    sortBy: params.sort ? parseSort(params.sort) : undefined,
+  };
+}
+
+/** Hunt page job list — country/mode only from URL (not profile defaults). Default sort: newest first. */
+export function parseHuntResultsFilters(
+  params: Record<string, string | undefined>
+): JobMatchFilters {
+  const base = parseJobFilters(params);
+  return {
+    ...base,
+    huntCountry: params.country || undefined,
+    huntMode: parseHuntMode(params.huntMode),
+    sortBy: parseSort(params.sort),
   };
 }
 
@@ -67,6 +85,10 @@ export function filtersToSearchParams(
   if (options?.includeHunt) {
     if (filters.huntCountry) params.set("country", filters.huntCountry);
     if (filters.huntMode) params.set("huntMode", filters.huntMode);
+  }
+
+  if (filters.sortBy && filters.sortBy !== "date") {
+    params.set("sort", filters.sortBy);
   }
 
   return params;
@@ -110,6 +132,9 @@ export function readFiltersFromSearchParams(
     filters.huntCountry = searchParams.get("country") ?? undefined;
     filters.huntMode = parseHuntMode(searchParams.get("huntMode") ?? undefined);
   }
+
+  const sort = searchParams.get("sort");
+  if (sort === "score" || sort === "date") filters.sortBy = sort;
 
   return filters;
 }

@@ -31,6 +31,21 @@ function dedupeRows<T extends { job: typeof jobs.$inferSelect }>(rows: T[]): T[]
   });
 }
 
+function sortRows<T extends { job: typeof jobs.$inferSelect; match: typeof jobMatches.$inferSelect }>(
+  rows: T[],
+  sortBy: JobMatchFilters["sortBy"]
+): T[] {
+  const mode = sortBy ?? "score";
+  return [...rows].sort((a, b) => {
+    if (mode === "date") {
+      const da = a.job.postedAt ?? a.job.createdAt;
+      const db = b.job.postedAt ?? b.job.createdAt;
+      return new Date(db).getTime() - new Date(da).getTime();
+    }
+    return b.match.score - a.match.score;
+  });
+}
+
 export const jobMatchRepository = {
   async upsert(userId: string, jobId: string, score: MatchScoreResult) {
     const db = requireDb();
@@ -77,7 +92,8 @@ export const jobMatchRepository = {
       .where(and(...conditions))
       .orderBy(desc(jobMatches.score));
 
-    return dedupeRows(applyCompanySizeFilter(rows, filters));
+    const deduped = dedupeRows(applyCompanySizeFilter(rows, filters));
+    return sortRows(deduped, filters.sortBy);
   },
 
   async countForUser(userId: string, filters: JobMatchFilters = {}) {

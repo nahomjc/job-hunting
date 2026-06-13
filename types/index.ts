@@ -87,6 +87,8 @@ export type ExperienceLevel = "junior" | "mid" | "senior" | "staff" | "lead" | "
 export type CompanySize = "startup" | "mid" | "enterprise" | "unknown";
 export type RemoteFilter = "all" | "remote" | "onsite" | "hybrid";
 
+export type JobSortBy = "date" | "score";
+
 export interface JobMatchFilters {
   minScore?: number;
   minSalary?: number;
@@ -100,6 +102,7 @@ export interface JobMatchFilters {
   status?: ApplicationStatus;
   huntCountry?: string;
   huntMode?: import("@/lib/jobs/hunt-preferences").HuntMode;
+  sortBy?: JobSortBy;
 }
 
 export type NotificationWithMeta = Notification;

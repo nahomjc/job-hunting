@@ -80,7 +80,7 @@ export function JobsFoundTable({ rows }: JobsFoundTableProps) {
                 Match
               </th>
               <th className="px-4 py-3 text-left text-label !normal-case !tracking-normal hidden sm:table-cell">
-                Found
+                Posted
               </th>
               <th className="px-4 py-3 text-right text-label !normal-case !tracking-normal w-24">
                 Actions
@@ -156,7 +156,7 @@ export function JobsFoundTable({ rows }: JobsFoundTableProps) {
 
                   <td className="px-4 py-3.5 hidden sm:table-cell whitespace-nowrap">
                     <span className="text-xs text-muted-foreground tabular-nums">
-                      {formatDateFound(job.createdAt)}
+                      {formatDateFound(job.postedAt ?? job.createdAt)}
                     </span>
                   </td>
 

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
 import { HuntSettingsControls } from "@/components/dashboard/hunt-settings-controls";
 import { HuntPipelinePanel } from "@/components/dashboard/hunt-pipeline-panel";
+import { HuntBusinessLeadsPanel } from "@/components/dashboard/hunt-business-leads-panel";
 import { getInitialHuntState, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
 import { createDefaultProviders } from "@/lib/jobs/providers";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
@@ -11,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthUser } from "@/lib/supabase/server";
 import { profileRepository } from "@/lib/repositories/profile-repository";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
-import { parseHuntPageFilters } from "@/lib/jobs/parse-filters";
+import { parseHuntResultsFilters } from "@/lib/jobs/parse-filters";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
@@ -48,7 +49,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
     // DB not configured
   }
 
-  const filters = parseHuntPageFilters(params, profile);
+  const filters = parseHuntResultsFilters(params);
   const huntState = getInitialHuntState(profile);
   const providerCount = createDefaultProviders().length;
 
@@ -76,6 +77,36 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
           </div>
         </div>
 
+        <section id="hunt-results" className="scroll-mt-24 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Hunt results</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Sorted by newest first. Use filters to narrow by country, salary, or keywords.
+            </p>
+          </div>
+          <JobsFilterToolbar basePath="/dashboard/hunt" variant="hunt" />
+          <Suspense
+            key={JSON.stringify(filters)}
+            fallback={
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-96 w-full rounded-xl" />
+              </div>
+            }
+          >
+            <JobsResultsSection
+              userId={user.id}
+              filters={filters}
+              totalMatches={totalMatches}
+              emptyDescription={
+                totalMatches === 0
+                  ? "Start a country hunt below — scored jobs will appear here, newest first."
+                  : "No jobs match your filters. Clear country filter or try “Any” hunt mode."
+              }
+            />
+          </Suspense>
+        </section>
+
         <HuntPipelinePanel
           countryLabel={getCountryLabel(huntState.huntCountry)}
           modeLabel={getHuntModeLabel(huntState.huntMode)}
@@ -83,49 +114,25 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
           lastRun={lastRun}
         />
 
-        <JobsFilterToolbar basePath="/dashboard/hunt" variant="hunt" />
+        <HuntBusinessLeadsPanel />
 
-        <Suspense
-          key={JSON.stringify(filters)}
-          fallback={
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-96 w-full rounded-xl" />
-            </div>
-          }
-        >
-          <JobsResultsSection
-            userId={user.id}
-            filters={filters}
-            totalMatches={totalMatches}
-            emptyDescription={
-              totalMatches === 0
-                ? "Start a country hunt above — results will appear here as jobs are found and scored."
-                : "No jobs match your filters. Try a broader country, “Any” hunt mode, or clear filters."
-            }
-          />
-        </Suspense>
-
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-border/60 p-4">
-            <h3 className="text-sm font-medium">Remote in country</h3>
-            <p className="text-xs text-muted-foreground mt-2">
-              Jobs you can do from home but open to candidates in your selected country.
+            <h3 className="text-sm font-medium">How job hunt works</h3>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              The agent scans {providerCount}+ boards, filters by your country and mode, saves new
+              listings, then AI-scores them. Results above show every scored job — not just the
+              country filter used during the scan.
             </p>
           </div>
           <div className="rounded-lg border border-border/60 p-4">
-            <h3 className="text-sm font-medium">On-site / local</h3>
-            <p className="text-xs text-muted-foreground mt-2">
-              Physical offices and local employers in your target country.
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 p-4">
-            <h3 className="text-sm font-medium">Investigate companies</h3>
-            <p className="text-xs text-muted-foreground mt-2">
-              From Jobs Found or Business Leads — check gaps (website, marketing) and draft pitch letters.
+            <h3 className="text-sm font-medium">How business leads work</h3>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              Employers who post jobs but have no working website are strong leads if you sell
+              websites or marketing. Scan after a hunt, then Investigate to generate a pitch letter.
             </p>
             <Button asChild variant="link" className="h-auto p-0 mt-2 text-xs">
-              <Link href="/dashboard/leads">Open Business Leads</Link>
+              <Link href="/dashboard/leads">View saved leads</Link>
             </Button>
           </div>
         </div>

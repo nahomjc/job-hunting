@@ -49,7 +49,7 @@ export async function JobsResultsSection({
           (totalMatches === 0
             ? "Run a hunt to fetch and score jobs, then search and filter here."
             : hasActiveFilters
-              ? "No jobs match your search or filters. Try adjusting filters or clearing them."
+              ? `No jobs match your filters (${totalMatches} scored total). Clear country or hunt mode filters to see all results.`
               : "No scored jobs yet.")
         }
       />
