@@ -128,7 +128,10 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
           lastRun={lastRun}
         />
 
-        <HuntBusinessLeadsPanel />
+        <HuntBusinessLeadsPanel
+          countryCode={huntState.huntCountry || undefined}
+          countryLabel={getCountryLabel(huntState.huntCountry)}
+        />
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-border/60 p-4">
@@ -142,8 +145,9 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
           <div className="rounded-lg border border-border/60 p-4">
             <h3 className="text-sm font-medium">How business leads work</h3>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              Employers who post jobs but have no working website are strong leads if you sell
-              websites or marketing. Scan after a hunt, then Investigate to generate a pitch letter.
+              We scan Google Maps and OpenStreetMap in your hunt country for hotels, restaurants,
+              and shops without a working website — no job hunt required. Each scan returns up to 5
+              leads; use Investigate to generate a pitch letter.
             </p>
             <Button asChild variant="link" className="h-auto p-0 mt-2 text-xs">
               <Link href="/dashboard/leads">View saved leads</Link>

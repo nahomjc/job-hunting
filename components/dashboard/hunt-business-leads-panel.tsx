@@ -2,41 +2,57 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Building2, Globe2, Loader2, Sparkles } from "lucide-react";
+import { Building2, Globe2, Loader2, MapPin, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { scanNoWebsiteLeads, type NoWebsiteLead } from "@/app/actions/business-leads";
+import {
+  scanLocalBusinessLeads,
+  type BusinessLeadResult,
+} from "@/app/actions/business-leads";
 import { InvestigateJobButton } from "@/components/jobs/investigate-job-button";
 import type { Job } from "@/lib/db/schema";
 import { toast } from "sonner";
 
-function toJobStub(lead: NoWebsiteLead): Job {
+interface HuntBusinessLeadsPanelProps {
+  countryCode?: string;
+  countryLabel?: string;
+}
+
+function toJobStub(lead: BusinessLeadResult): Job {
   return {
     id: lead.jobId,
     company: lead.company,
     title: lead.title,
     url: lead.jobUrl,
     location: lead.location,
+    description: lead.analysisNote,
   } as Job;
 }
 
-export function HuntBusinessLeadsPanel() {
-  const [leads, setLeads] = useState<NoWebsiteLead[]>([]);
+export function HuntBusinessLeadsPanel({
+  countryCode,
+  countryLabel = "your hunt country",
+}: HuntBusinessLeadsPanelProps) {
+  const [leads, setLeads] = useState<BusinessLeadResult[]>([]);
   const [scanned, setScanned] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const canScan = Boolean(countryCode);
 
   function handleScan() {
     startTransition(async () => {
       try {
-        const results = await scanNoWebsiteLeads();
+        const results = await scanLocalBusinessLeads();
         setLeads(results);
         setScanned(true);
         if (results.length === 0) {
-          toast.message("No missing-website leads in your latest jobs", {
-            description: "All probed companies had a reachable site, or run a hunt first.",
+          toast.message(`No website-less businesses found in ${countryLabel}`, {
+            description: "Try another area or run again — we scan hotels, restaurants, and shops on maps.",
           });
         } else {
-          toast.success(`Found ${results.length} companies without a working website`);
+          toast.success(
+            `Found ${results.length} local businesses in ${countryLabel} that need a website`
+          );
         }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Scan failed");
@@ -54,32 +70,40 @@ export function HuntBusinessLeadsPanel() {
               <h3 className="text-sm font-semibold">Local business leads</h3>
             </div>
             <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
-              After a job hunt, scan employers for missing or broken websites — ideal targets if you
-              offer web design, marketing, or branding. Click <strong>Investigate</strong> to draft a
-              pitch letter using your services from Settings.
+              Scans <strong>Google Maps</strong> and <strong>OpenStreetMap</strong> for hotels,
+              restaurants, and local shops in{" "}
+              <strong>{countryLabel}</strong> — independent of job board results. Finds up to{" "}
+              <strong>5 companies</strong> with no working website, then you can{" "}
+              <strong>Investigate</strong> to draft a pitch.
             </p>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={pending}
+            disabled={pending || !canScan}
             onClick={handleScan}
             className="shrink-0"
           >
             {pending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Scanning…
+                Scanning maps…
               </>
             ) : (
               <>
                 <Globe2 className="h-4 w-4" />
-                Scan for no-website companies
+                Find 5 local leads
               </>
             )}
           </Button>
         </div>
+        {!canScan && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Set a hunt country above (or in Settings → Local hunt) to scan businesses in your target
+            region.
+          </p>
+        )}
       </div>
 
       <div className="px-5 py-4">
@@ -87,27 +111,40 @@ export function HuntBusinessLeadsPanel() {
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
             <Building2 className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
             <p className="text-sm text-muted-foreground">
-              Run a country hunt first, then scan to find local employers hiring without a proper
-              web presence.
+              {canScan
+                ? `Search local businesses in ${countryLabel} on maps — no job hunt required. First scan returns up to 5 companies that likely need a website.`
+                : "Choose a hunt country first, then scan for local business leads."}
             </p>
           </div>
         ) : leads.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No companies with missing websites in your recent hunt results.
+            No missing-website businesses found in {countryLabel} this time. Try again later or
+            pick a different country.
           </p>
         ) : (
           <ul className="divide-y divide-border/50">
             {leads.map((lead) => (
               <li
                 key={lead.jobId}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
               >
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{lead.company}</p>
-                  <p className="text-xs text-muted-foreground truncate">{lead.title}</p>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-sm truncate">{lead.company}</p>
+                    <Badge variant="outline" className="text-[10px] capitalize">
+                      {lead.source === "google" ? "Google Maps" : "OpenStreetMap"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground capitalize">{lead.category}</p>
                   {lead.location && (
-                    <p className="text-xs text-muted-foreground/80 mt-0.5">{lead.location}</p>
+                    <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{lead.location}</span>
+                    </p>
                   )}
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {lead.analysisNote}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="secondary" className="capitalize text-[10px]">

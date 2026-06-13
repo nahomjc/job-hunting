@@ -1,53 +1,104 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getAuthUser } from "@/lib/supabase/server";
-import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
-import { probeCompanyWebsite, type WebsiteStatus } from "@/lib/services/company-web-probe";
+import { profileRepository } from "@/lib/repositories/profile-repository";
+import { jobRepository } from "@/lib/repositories/job-repository";
+import { getHuntPreferences, getCountryLabel } from "@/lib/jobs/hunt-preferences";
+import {
+  discoverLocalBusinessLeads,
+  DEFAULT_TARGET_LEADS,
+  type LocalBusinessLead,
+} from "@/lib/services/local-business-discovery";
+import type { WebsiteStatus } from "@/lib/services/company-web-probe";
 import { rateLimit } from "@/lib/security/rate-limit";
 
-export interface NoWebsiteLead {
+export interface BusinessLeadResult {
   jobId: string;
   company: string;
   title: string;
   location: string | null;
+  category: string;
   websiteStatus: WebsiteStatus;
   jobUrl: string;
+  source: "google" | "osm";
+  analysisNote: string;
+  countryLabel: string;
 }
 
-const MAX_PROBE = 15;
+async function persistLeadJob(lead: LocalBusinessLead, countryLabel: string) {
+  const job = await jobRepository.upsert({
+    externalId: lead.id,
+    provider: "manual",
+    company: lead.name,
+    title: `${lead.category} — local business lead`,
+    description: [
+      lead.analysisNote,
+      lead.address ? `Address: ${lead.address}` : null,
+      `Discovered via ${lead.source === "google" ? "Google Maps" : "OpenStreetMap"} in ${countryLabel}.`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    url: lead.listingUrl,
+    location: lead.location,
+    isRemote: false,
+    tags: ["local-lead", lead.category, lead.source],
+    rawData: lead.rawData,
+  });
 
-export async function scanNoWebsiteLeads(): Promise<NoWebsiteLead[]> {
+  return job;
+}
+
+export async function scanLocalBusinessLeads(): Promise<BusinessLeadResult[]> {
   const user = await getAuthUser();
   if (!user) throw new Error("Unauthorized");
 
   const limit = rateLimit(`business-leads:${user.id}`, 5, 60_000);
   if (!limit.success) throw new Error("Rate limit exceeded — try again in a minute");
 
-  const matches = await jobMatchRepository.findForUser(user.id, { sortBy: "date" });
-  const seenCompanies = new Set<string>();
-  const leads: NoWebsiteLead[] = [];
+  const profile = await profileRepository.getByUserId(user.id);
+  const huntPrefs = getHuntPreferences(profile?.preferences);
+  const countryCode = huntPrefs.huntCountry;
 
-  for (const { job } of matches) {
-    const key = job.company.trim().toLowerCase();
-    if (!key || seenCompanies.has(key)) continue;
-    seenCompanies.add(key);
-
-    if (seenCompanies.size > MAX_PROBE + leads.length) break;
-
-    const probe = await probeCompanyWebsite(job.company, job.url);
-    if (probe.status === "found") continue;
-
-    leads.push({
-      jobId: job.id,
-      company: job.company,
-      title: job.title,
-      location: job.location,
-      websiteStatus: probe.status,
-      jobUrl: job.url,
-    });
-
-    if (leads.length >= MAX_PROBE) break;
+  if (!countryCode) {
+    throw new Error(
+      "Set your hunt country in Local Hunt or Settings → Local hunt before scanning for business leads."
+    );
   }
 
-  return leads;
+  const countryLabel = getCountryLabel(countryCode);
+  const discoveries = await discoverLocalBusinessLeads(countryCode, {
+    targetLeads: DEFAULT_TARGET_LEADS,
+  });
+
+  const results: BusinessLeadResult[] = [];
+
+  for (const lead of discoveries) {
+    const job = await persistLeadJob(lead, countryLabel);
+    results.push({
+      jobId: job.id,
+      company: lead.name,
+      title: `${lead.category} — local business lead`,
+      location: lead.location,
+      category: lead.category,
+      websiteStatus: lead.websiteStatus,
+      jobUrl: lead.listingUrl,
+      source: lead.source,
+      analysisNote: lead.analysisNote,
+      countryLabel,
+    });
+  }
+
+  revalidatePath("/dashboard/hunt");
+  revalidatePath("/dashboard/jobs");
+  revalidatePath("/dashboard/leads");
+
+  return results;
+}
+
+/** @deprecated Use scanLocalBusinessLeads — kept for compatibility */
+export type NoWebsiteLead = BusinessLeadResult;
+
+export async function scanNoWebsiteLeads(): Promise<BusinessLeadResult[]> {
+  return scanLocalBusinessLeads();
 }

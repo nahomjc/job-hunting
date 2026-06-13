@@ -14,6 +14,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
 import { jobRepository } from "@/lib/repositories/job-repository";
 import { parseJobFilters } from "@/lib/jobs/parse-filters";
+import { getInitialHuntState, getCountryLabel } from "@/lib/jobs/hunt-preferences";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
 import { createDefaultProviders } from "@/lib/jobs/providers";
 
@@ -44,6 +45,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   }
 
   const providerCount = createDefaultProviders().length;
+  const huntCountry = profile ? getInitialHuntState(profile).huntCountry : "";
 
   return (
     <>
@@ -135,7 +137,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
               </div>
             </>
           }
-          leads={<HuntBusinessLeadsPanel />}
+          leads={
+            <HuntBusinessLeadsPanel
+              countryCode={huntCountry || undefined}
+              countryLabel={getCountryLabel(huntCountry)}
+            />
+          }
           />
         </Suspense>
       </div>
