@@ -1,5 +1,6 @@
 import { eq, and, notInArray, sql } from "drizzle-orm";
 import { requireDb, jobs, jobMatches } from "@/lib/db";
+import { buildJobDedupeKey } from "@/lib/jobs/dedupe";
 import type { JobSearchResult, JobProvider } from "@/types";
 
 export const jobRepository = {
@@ -19,15 +20,32 @@ export const jobRepository = {
     return job ?? null;
   },
 
-  async upsert(data: JobSearchResult) {
+  async findByDedupeKey(dedupeKey: string) {
     const db = requireDb();
     const [job] = await db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.dedupeKey, dedupeKey))
+      .limit(1);
+    return job ?? null;
+  },
+
+  async upsert(data: JobSearchResult) {
+    const db = requireDb();
+    const dedupeKey = buildJobDedupeKey({
+      company: data.company,
+      title: data.title,
+      location: data.location,
+    });
+
+    const rows = await db
       .insert(jobs)
       .values({
         externalId: data.externalId,
         provider: data.provider,
         company: data.company,
         title: data.title,
+        dedupeKey,
         description: data.description,
         url: data.url,
         salaryMin: data.salaryMin,
@@ -46,11 +64,13 @@ export const jobRepository = {
           description: data.description,
           salaryMin: data.salaryMin,
           salaryMax: data.salaryMax,
+          dedupeKey,
           updatedAt: new Date(),
         },
       })
       .returning();
-    return job;
+
+    return rows[0];
   },
 
   async findUnscoredForUser(userId: string, limit = 50) {

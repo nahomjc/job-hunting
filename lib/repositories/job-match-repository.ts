@@ -4,6 +4,7 @@ import {
   inferCompanySize,
   inferExperienceLevel,
 } from "@/lib/jobs/job-metadata";
+import { dedupeKeyFromJob } from "@/lib/jobs/dedupe";
 import type { MatchScoreResult, JobMatchFilters } from "@/types";
 
 export const jobMatchRepository = {
@@ -56,7 +57,13 @@ export const jobMatchRepository = {
       .where(and(...conditions))
       .orderBy(desc(jobMatches.score));
 
+    const seenRoles = new Set<string>();
+
     return rows.filter((row) => {
+      const roleKey = dedupeKeyFromJob(row.job);
+      if (seenRoles.has(roleKey)) return false;
+      seenRoles.add(roleKey);
+
       const { job, application } = row;
 
       if (filters.minSalary) {

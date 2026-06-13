@@ -211,6 +211,7 @@ export const jobs = pgTable(
     provider: jobProviderEnum("provider").notNull(),
     company: text("company").notNull(),
     title: text("title").notNull(),
+    dedupeKey: text("dedupe_key"),
     description: text("description"),
     url: text("url").notNull(),
     salaryMin: integer("salary_min"),
@@ -226,6 +227,7 @@ export const jobs = pgTable(
   },
   (t) => [
     uniqueIndex("jobs_provider_external_id_idx").on(t.provider, t.externalId),
+    uniqueIndex("jobs_dedupe_key_idx").on(t.dedupeKey),
     index("jobs_company_idx").on(t.company),
   ]
 );

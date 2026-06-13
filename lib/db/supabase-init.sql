@@ -167,6 +167,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   provider        job_provider NOT NULL,
   company         TEXT NOT NULL,
   title           TEXT NOT NULL,
+  dedupe_key      TEXT,
   description     TEXT,
   url             TEXT NOT NULL,
   salary_min      INTEGER,
@@ -182,6 +183,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_provider_external_id_idx ON jobs (provider, external_id);
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_dedupe_key_idx ON jobs (dedupe_key) WHERE dedupe_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS jobs_company_idx ON jobs (company);
 
 -- ─── Resumes ──────────────────────────────────────────────────────────────────

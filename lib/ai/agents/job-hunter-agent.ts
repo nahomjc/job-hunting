@@ -1,5 +1,6 @@
 import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { createDefaultProviders } from "@/lib/jobs/providers";
+import { buildJobDedupeKey } from "@/lib/jobs/dedupe";
 import { jobRepository } from "@/lib/repositories/job-repository";
 import type { JobSearchResult } from "@/types";
 import type { Profile } from "@/lib/db/schema";
@@ -25,7 +26,11 @@ function buildSearchQuery(profile: Profile): string {
 }
 
 function dedupeKey(job: JobSearchResult): string {
-  return `${job.company.toLowerCase()}:${job.title.toLowerCase()}`;
+  return buildJobDedupeKey({
+    company: job.company,
+    title: job.title,
+    location: job.location,
+  });
 }
 
 export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
@@ -83,6 +88,12 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
 
         const existing = await jobRepository.findByExternalId(job.provider, job.externalId);
         if (existing) {
+          continue;
+        }
+
+        const existingByRole = await jobRepository.findByDedupeKey(key);
+        if (existingByRole) {
+          duplicates++;
           continue;
         }
 
