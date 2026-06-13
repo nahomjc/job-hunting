@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
 import { RunAgentButton } from "@/components/dashboard/run-agent-button";
 import { HuntSettingsControls } from "@/components/dashboard/hunt-settings-controls";
-import { getInitialHuntState } from "@/components/dashboard/hunt-preferences-fields";
+import { getInitialHuntState } from "@/lib/jobs/hunt-preferences";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
 import { Skeleton } from "@/components/ui/skeleton";

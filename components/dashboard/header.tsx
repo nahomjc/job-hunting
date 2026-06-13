@@ -1,6 +1,7 @@
 "use client";
 
 import { HeaderUserMenu } from "@/components/dashboard/header-user-menu";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 
 interface HeaderProps {
   title: string;
@@ -14,7 +15,10 @@ export function Header({ title, description }: HeaderProps) {
         <h1 className="text-heading">{title}</h1>
         {description && <p className="text-caption mt-0.5">{description}</p>}
       </div>
-      <HeaderUserMenu />
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+        <HeaderUserMenu />
+      </div>
     </header>
   );
 }

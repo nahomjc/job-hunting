@@ -76,3 +76,14 @@ export function getCountryLabel(code?: string): string {
 export function getHuntModeLabel(mode?: HuntMode): string {
   return HUNT_MODES.find((m) => m.value === mode)?.label ?? "Any";
 }
+
+export function getInitialHuntState(
+  profile: { preferences?: Record<string, unknown> | null } | null
+) {
+  const prefs = getHuntPreferences(profile?.preferences);
+  return {
+    huntCountry: prefs.huntCountry ?? "",
+    huntMode: (prefs.huntMode ?? "any") as HuntMode,
+    servicesOffered: (prefs.servicesOffered ?? []) as ServiceOffered[],
+  };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, FileText, MessageSquare, BarChart3, Zap, Shield, Clock, Globe } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -45,53 +45,75 @@ const extras = [
   { icon: Globe, label: "Remote-first focus" },
 ];
 
-const CAROUSEL_INTERVAL = 3200;
+const PICK_DURATION = 0.92;
+const CAROUSEL_HOLD = 2800;
+const CAROUSEL_INTERVAL = CAROUSEL_HOLD + PICK_DURATION * 1000;
 
-function getStackPosition(relativeIndex: number) {
-  switch (relativeIndex) {
+/** Resting stack positions — index 0 is the face-up top card. */
+function getStackPosition(stackIndex: number) {
+  switch (stackIndex) {
     case 0:
       return { x: "-50%", y: 0, scale: 1, opacity: 1, rotate: 0, zIndex: 40, filter: "blur(0px)" };
     case 1:
       return {
         x: "-44%",
-        y: 20,
-        scale: 0.93,
-        opacity: 0.7,
-        rotate: 3,
+        y: 18,
+        scale: 0.945,
+        opacity: 0.78,
+        rotate: 2.5,
         zIndex: 30,
-        filter: "blur(0.5px)",
+        filter: "blur(0px)",
       };
     case 2:
       return {
         x: "-38%",
-        y: 40,
-        scale: 0.87,
-        opacity: 0.48,
-        rotate: -2.5,
+        y: 36,
+        scale: 0.89,
+        opacity: 0.55,
+        rotate: -2,
         zIndex: 20,
-        filter: "blur(1px)",
+        filter: "blur(0.5px)",
       };
     default:
       return {
         x: "-32%",
-        y: 60,
-        scale: 0.8,
-        opacity: 0.32,
-        rotate: 2,
+        y: 54,
+        scale: 0.84,
+        opacity: 0.38,
+        rotate: 1.5,
         zIndex: 10,
-        filter: "blur(1.5px)",
+        filter: "blur(1px)",
       };
   }
 }
+
+/** Human-like pick: grasp → pull aside → tuck to back of deck. */
+const pickKeyframes = {
+  x: ["-50%", "-47%", "12%", "-32%"] as const,
+  y: [0, -32, -44, 54] as const,
+  rotate: [0, -4, 16, 1.5] as const,
+  scale: [1, 1.05, 0.97, 0.84] as const,
+  opacity: [1, 1, 1, 0.38] as const,
+  zIndex: [40, 100, 100, 10] as const,
+  filter: ["blur(0px)", "blur(0px)", "blur(0px)", "blur(1px)"] as const,
+};
+
+const pickTransition = {
+  duration: PICK_DURATION,
+  times: [0, 0.2, 0.52, 1],
+  ease: [0.32, 0.08, 0.18, 1] as const,
+};
 
 function FeatureCard({
   feature,
   index,
   scattered,
+  isPicked,
 }: {
   feature: (typeof features)[number];
   index: number;
   scattered: boolean;
+  isPicked?: boolean;
 }) {
   const Icon = feature.icon;
 
@@ -100,7 +122,8 @@ function FeatureCard({
       variant="interactive"
       className={cn(
         "group h-full p-6 md:p-8 relative overflow-hidden",
-        scattered && "cursor-default"
+        scattered && "cursor-default",
+        isPicked && "shadow-2xl ring-1 ring-primary/10"
       )}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -129,14 +152,55 @@ function FeaturesCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isScattered, setIsScattered] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const pickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPickTimer = useCallback(() => {
+    if (pickTimer.current) {
+      clearTimeout(pickTimer.current);
+      pickTimer.current = null;
+    }
+  }, []);
+
+  const advanceCard = useCallback(() => {
+    if (isPicking || isScattered) return;
+
+    setIsPicking(true);
+    setPickedIndex(activeIndex);
+
+    clearPickTimer();
+    pickTimer.current = setTimeout(() => {
+      setActiveIndex((prev) => (prev + 1) % features.length);
+      setPickedIndex(null);
+      setIsPicking(false);
+    }, PICK_DURATION * 1000);
+  }, [activeIndex, clearPickTimer, isPicking, isScattered]);
 
   useEffect(() => {
-    if (isScattered) return;
-    const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % features.length);
-    }, CAROUSEL_INTERVAL);
+    if (isScattered || isPicking) return;
+    const timer = setInterval(advanceCard, CAROUSEL_INTERVAL);
     return () => clearInterval(timer);
-  }, [isScattered]);
+  }, [advanceCard, isPicking, isScattered]);
+
+  useEffect(() => () => clearPickTimer(), [clearPickTimer]);
+
+  const goToIndex = (target: number) => {
+    if (isScattered || isPicking || target === activeIndex) return;
+
+    const stepsForward = (target - activeIndex + features.length) % features.length;
+    const stepsBackward = (activeIndex - target + features.length) % features.length;
+
+    if (stepsForward === 1 || stepsBackward === 1) {
+      advanceCard();
+      return;
+    }
+
+    clearPickTimer();
+    setIsPicking(false);
+    setPickedIndex(null);
+    setActiveIndex(target);
+  };
 
   return (
     <motion.div
@@ -150,7 +214,7 @@ function FeaturesCarousel() {
       <section
         className={cn(
           "relative transition-[min-height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          isScattered ? "min-h-0" : "mx-auto min-h-[340px] max-w-lg md:min-h-[380px] md:max-w-xl"
+          isScattered ? "min-h-0" : "mx-auto min-h-[360px] max-w-lg md:min-h-[400px] md:max-w-xl"
         )}
         onMouseEnter={() => setIsScattered(true)}
         onMouseLeave={() => setIsScattered(false)}
@@ -158,13 +222,16 @@ function FeaturesCarousel() {
       >
         <motion.div
           layout
-          className={cn(
-            isScattered ? "grid gap-5 sm:grid-cols-2" : "relative h-full w-full"
-          )}
+          className={cn(isScattered ? "grid gap-5 sm:grid-cols-2" : "relative h-full w-full")}
           transition={{ layout: { duration: 0.55, ease } }}
         >
           {features.map((feature, i) => {
-            const relativeIndex = (i - activeIndex + features.length) % features.length;
+            const stackIndex = (i - activeIndex + features.length) % features.length;
+            const isBeingPicked = isPicking && pickedIndex === i;
+
+            // While the top card is picked, cards beneath slide up one slot.
+            const effectiveStackIndex =
+              isPicking && !isBeingPicked && stackIndex > 0 ? stackIndex - 1 : stackIndex;
 
             return (
               <motion.div
@@ -174,32 +241,46 @@ function FeaturesCarousel() {
                 initial={false}
                 animate={
                   isScattered
-                    ? {
-                        x: 0,
-                        y: 0,
-                        scale: 1,
-                        opacity: 1,
-                        rotate: 0,
-                        zIndex: i + 1,
-                      }
-                    : hasEntered
-                      ? getStackPosition(relativeIndex)
-                      : {
-                          x: "-50%",
-                          y: 40,
-                          scale: 0.9,
-                          opacity: 0,
-                          rotate: 0,
-                          zIndex: 0,
-                        }
+                    ? { x: 0, y: 0, scale: 1, opacity: 1, rotate: 0, zIndex: i + 1, filter: "blur(0px)" }
+                    : isBeingPicked
+                      ? pickKeyframes
+                      : hasEntered
+                        ? getStackPosition(effectiveStackIndex)
+                        : {
+                            x: "-50%",
+                            y: 40,
+                            scale: 0.9,
+                            opacity: 0,
+                            rotate: 0,
+                            zIndex: 0,
+                            filter: "blur(0px)",
+                          }
                 }
-                transition={{
-                  duration: isScattered ? 0.55 : 0.65,
-                  ease,
-                  delay: isScattered ? i * 0.07 : hasEntered && relativeIndex === 0 ? 0 : i * 0.12,
+                transition={
+                  isBeingPicked
+                    ? pickTransition
+                    : {
+                        duration: isPicking ? 0.5 : 0.55,
+                        ease,
+                        delay: isScattered
+                          ? i * 0.07
+                          : isPicking && stackIndex > 0
+                            ? 0.16 + (stackIndex - 1) * 0.05
+                            : hasEntered && stackIndex === 0
+                              ? 0
+                              : i * 0.1,
+                      }
+                }
+                style={{
+                  transformOrigin: isBeingPicked ? "50% 100%" : "50% 50%",
                 }}
               >
-                <FeatureCard feature={feature} index={i} scattered={isScattered} />
+                <FeatureCard
+                  feature={feature}
+                  index={i}
+                  scattered={isScattered}
+                  isPicked={isBeingPicked}
+                />
               </motion.div>
             );
           })}
@@ -224,12 +305,11 @@ function FeaturesCarousel() {
                     className="pointer-events-auto h-2 rounded-full transition-all duration-300"
                     style={{
                       width: i === activeIndex ? 24 : 8,
-                      backgroundColor:
-                        i === activeIndex ? "hsl(var(--primary))" : "hsl(var(--border))",
+                      backgroundColor: i === activeIndex ? "hsl(var(--primary))" : "hsl(var(--border))",
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveIndex(i);
+                      goToIndex(i);
                     }}
                   />
                 ))}

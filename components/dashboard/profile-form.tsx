@@ -10,8 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { CvUpload } from "@/components/dashboard/cv-upload";
 import {
   HuntPreferencesFields,
-  getInitialHuntState,
 } from "@/components/dashboard/hunt-preferences-fields";
+import { getInitialHuntState } from "@/lib/jobs/hunt-preferences";
 import { updateProfile } from "@/app/actions/profile";
 import type { Profile } from "@/lib/db/schema";
 import type { ParsedCvResult } from "@/lib/services/cv-parser-service";

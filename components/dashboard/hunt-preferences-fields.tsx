@@ -2,7 +2,6 @@
 
 import { Label } from "@/components/ui/label";
 import {
-  getHuntPreferences,
   SERVICE_OPTIONS,
   type HuntMode,
   type ServiceOffered,
@@ -72,13 +71,4 @@ export function HuntPreferencesFields({
       </div>
     </div>
   );
-}
-
-export function getInitialHuntState(profile: Profile | null) {
-  const prefs = getHuntPreferences(profile?.preferences);
-  return {
-    huntCountry: prefs.huntCountry ?? "",
-    huntMode: (prefs.huntMode ?? "any") as HuntMode,
-    servicesOffered: (prefs.servicesOffered ?? []) as ServiceOffered[],
-  };
 }
