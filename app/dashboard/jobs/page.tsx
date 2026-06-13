@@ -17,6 +17,7 @@ import { parseJobFilters } from "@/lib/jobs/parse-filters";
 import { getInitialHuntState, getCountryLabel } from "@/lib/jobs/hunt-preferences";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
 import { createDefaultProviders } from "@/lib/jobs/providers";
+import { getLocalBusinessLeads } from "@/app/actions/business-leads";
 
 interface JobsPageProps {
   searchParams: Promise<Record<string, string | undefined>>;
@@ -33,6 +34,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   let totalMatches = 0;
   let profile = null;
   let lastRun = null;
+  let businessLeads: Awaited<ReturnType<typeof getLocalBusinessLeads>> = [];
   try {
     [totalJobs, totalMatches, profile, lastRun] = await Promise.all([
       jobRepository.count(),
@@ -46,6 +48,14 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   const providerCount = createDefaultProviders().length;
   const huntCountry = profile ? getInitialHuntState(profile).huntCountry : "";
+
+  try {
+    if (huntCountry) {
+      businessLeads = await getLocalBusinessLeads(huntCountry);
+    }
+  } catch {
+    // migration pending or DB unavailable
+  }
 
   return (
     <>
@@ -142,6 +152,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             <HuntBusinessLeadsPanel
               countryCode={huntCountry || undefined}
               countryLabel={getCountryLabel(huntCountry)}
+              initialLeads={businessLeads}
             />
           }
           />

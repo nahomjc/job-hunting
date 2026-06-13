@@ -391,6 +391,31 @@ export const companyInvestigations = pgTable(
   ]
 );
 
+// ─── User Business Leads ─────────────────────────────────────────────────────
+
+export const userBusinessLeads = pgTable(
+  "user_business_leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    countryCode: text("country_code").notNull(),
+    category: text("category").notNull(),
+    websiteStatus: websiteStatusEnum("website_status").default("missing").notNull(),
+    source: text("source").default("osm").notNull(),
+    analysisNote: text("analysis_note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_business_leads_user_job_idx").on(t.userId, t.jobId),
+    index("user_business_leads_user_country_idx").on(t.userId, t.countryCode),
+  ]
+);
+
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 export const notifications = pgTable(
@@ -580,6 +605,7 @@ export type Application = typeof applications.$inferSelect;
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
 export type Interview = typeof interviews.$inferSelect;
 export type CompanyInvestigation = typeof companyInvestigations.$inferSelect;
+export type UserBusinessLead = typeof userBusinessLeads.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type Resume = typeof resumes.$inferSelect;

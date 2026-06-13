@@ -18,6 +18,7 @@ import { parseHuntResultsFilters } from "@/lib/jobs/parse-filters";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
+import { getLocalBusinessLeads } from "@/app/actions/business-leads";
 
 interface HuntPageProps {
   searchParams: Promise<Record<string, string | undefined>>;
@@ -50,6 +51,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
   let profile = null;
   let totalMatches = 0;
   let lastRun = null;
+  let businessLeads: Awaited<ReturnType<typeof getLocalBusinessLeads>> = [];
   try {
     [profile, totalMatches, lastRun] = await Promise.all([
       profileRepository.getByUserId(user.id),
@@ -64,6 +66,14 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
   const huntState = getInitialHuntState(profile);
   const providerCount = createDefaultProviders().length;
   const countryLabel = getCountryLabel(huntState.huntCountry);
+
+  try {
+    if (huntState.huntCountry) {
+      businessLeads = await getLocalBusinessLeads(huntState.huntCountry);
+    }
+  } catch {
+    // migration pending or DB unavailable
+  }
 
   return (
     <>
@@ -170,6 +180,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
               <HuntBusinessLeadsPanel
                 countryCode={huntState.huntCountry || undefined}
                 countryLabel={countryLabel}
+                initialLeads={businessLeads}
               />
             }
           />

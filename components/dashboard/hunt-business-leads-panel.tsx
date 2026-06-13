@@ -16,6 +16,7 @@ import { toast } from "sonner";
 interface HuntBusinessLeadsPanelProps {
   countryCode?: string;
   countryLabel?: string;
+  initialLeads?: BusinessLeadResult[];
 }
 
 function toJobStub(lead: BusinessLeadResult): Job {
@@ -32,9 +33,10 @@ function toJobStub(lead: BusinessLeadResult): Job {
 export function HuntBusinessLeadsPanel({
   countryCode,
   countryLabel = "your hunt country",
+  initialLeads = [],
 }: HuntBusinessLeadsPanelProps) {
-  const [leads, setLeads] = useState<BusinessLeadResult[]>([]);
-  const [scanned, setScanned] = useState(false);
+  const [leads, setLeads] = useState<BusinessLeadResult[]>(initialLeads);
+  const [scanned, setScanned] = useState(initialLeads.length > 0);
   const [pending, startTransition] = useTransition();
 
   const canScan = Boolean(countryCode);
@@ -42,16 +44,22 @@ export function HuntBusinessLeadsPanel({
   function handleScan() {
     startTransition(async () => {
       try {
+        const beforeCount = leads.length;
         const results = await scanLocalBusinessLeads();
         setLeads(results);
         setScanned(true);
+        const newCount = Math.max(0, results.length - beforeCount);
         if (results.length === 0) {
           toast.message(`No website-less businesses found in ${countryLabel}`, {
             description: "Try another area or run again — we scan hotels, restaurants, and shops on maps.",
           });
+        } else if (newCount === 0) {
+          toast.message(`No new leads this scan`, {
+            description: `${results.length} saved lead${results.length === 1 ? "" : "s"} for ${countryLabel}.`,
+          });
         } else {
           toast.success(
-            `Found ${results.length} local businesses in ${countryLabel} that need a website`
+            `Found ${newCount} new local business${newCount === 1 ? "" : "es"} in ${countryLabel} (${results.length} saved)`
           );
         }
       } catch (err) {
@@ -68,6 +76,11 @@ export function HuntBusinessLeadsPanel({
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold">Local business leads</h3>
+              {leads.length > 0 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {leads.length} saved
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
               100% <strong>free</strong> — uses <strong>OpenStreetMap</strong> (no Google API key).
