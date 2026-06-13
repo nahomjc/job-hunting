@@ -10,14 +10,15 @@ import {
   Loader2,
   Radar,
   Sparkles,
+  Square,
   Target,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { runAgentTask } from "@/app/actions/agent";
 import { formatRelativeTime } from "@/lib/agents/activity-display";
+import { PIPELINE_CANCEL_MESSAGE } from "@/lib/agents/cancellation";
 import type { LastHuntSummary } from "@/lib/hunt/last-run";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -56,6 +57,19 @@ interface PipelineResults {
   scoring?: { scored?: number; failed?: number; highMatches?: number };
 }
 
+interface ActivityResponse {
+  agents: ActivityAgent[];
+  pipeline?: {
+    running: boolean;
+    manager?: {
+      id: string;
+      status: string;
+      error: string | null;
+      results: PipelineResults | null;
+    } | null;
+  };
+}
+
 const POLL_MS = 1200;
 
 const COPY = {
@@ -74,6 +88,10 @@ const COPY = {
     emptyWarning:
       "Hunt finished but no new jobs were found. Try another country or broader mode.",
     completePrefix: "Hunt complete",
+    stopButton: "Stop hunt",
+    stoppingToast: "Stopping hunt…",
+    stoppedToast: "Hunt stopped",
+    alreadyRunningToast: "Hunt already in progress — showing live status",
   },
   global: {
     title: "Job search pipeline",
@@ -90,6 +108,10 @@ const COPY = {
     emptyWarning:
       "Search finished but no new jobs were found. Check your profile skills and try again.",
     completePrefix: "Search complete",
+    stopButton: "Stop search",
+    stoppingToast: "Stopping search…",
+    stoppedToast: "Search stopped",
+    alreadyRunningToast: "Search already in progress — showing live status",
   },
 } as const;
 
@@ -266,7 +288,10 @@ export function JobSearchPipelinePanel({
   const [hunter, setHunter] = useState<ActivityAgent | null>(null);
   const [matcher, setMatcher] = useState<ActivityAgent | null>(null);
   const [results, setResults] = useState<PipelineResults | null>(null);
+  const [stopping, setStopping] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasWatchingRef = useRef(false);
+  const completionHandledForRef = useRef<string | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -275,51 +300,34 @@ export function JobSearchPipelinePanel({
     }
   }, []);
 
-  const pollActivity = useCallback(async () => {
-    try {
-      const res = await fetch("/api/agents/activity", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      const agents = (data.agents ?? []) as ActivityAgent[];
-      setHunter(agents.find((a) => a.type === "job_hunter") ?? null);
-      setMatcher(agents.find((a) => a.type === "job_match") ?? null);
-    } catch {
-      // ignore poll errors
-    }
-  }, []);
+  const finishPipeline = useCallback(
+    (data: ActivityResponse) => {
+      const manager = data.pipeline?.manager;
+      if (!manager) return;
+      if (completionHandledForRef.current === manager.id) return;
+      completionHandledForRef.current = manager.id;
 
-  useEffect(() => () => stopPolling(), [stopPolling]);
+      if (manager.error === PIPELINE_CANCEL_MESSAGE) {
+        setPhase("idle");
+        setStopping(false);
+        toast.info(copy.stoppedToast);
+        router.refresh();
+        return;
+      }
 
-  const steps = buildSteps(
-    variant,
-    phase,
-    hunter,
-    matcher,
-    countryLabel,
-    modeLabel,
-    results,
-    providerCount
-  );
-  const progress = overallProgress(steps, hunter, matcher);
+      if (manager.status === "failed") {
+        setPhase("error");
+        setStopping(false);
+        toast.error(manager.error ?? copy.failToast);
+        router.refresh();
+        return;
+      }
 
-  async function handleRun() {
-    setPhase("running");
-    setResults(null);
-    setHunter(null);
-    setMatcher(null);
-
-    pollRef.current = setInterval(pollActivity, POLL_MS);
-    void pollActivity();
-
-    try {
-      const result = await runAgentTask("full_pipeline");
-      stopPolling();
-      await pollActivity();
-
-      if (result.success && result.data) {
-        const pipeline = (result.data as { results?: PipelineResults }).results ?? {};
+      if (manager.status === "completed" && manager.results) {
+        const pipeline = manager.results;
         setResults(pipeline);
         setPhase("complete");
+        setStopping(false);
 
         const found = pipeline.search?.found ?? 0;
         const saved = pipeline.search?.saved ?? 0;
@@ -339,15 +347,95 @@ export function JobSearchPipelinePanel({
         }
         params.set("sort", "date");
         router.push(`${basePath}?${params.toString()}#${resultsAnchorId}`);
-      } else {
-        setPhase("error");
-        toast.error(result.error ?? copy.failToast);
+        router.refresh();
       }
-      router.refresh();
+    },
+    [basePath, copy, resultsAnchorId, router, variant]
+  );
+
+  const applyActivity = useCallback(
+    (data: ActivityResponse) => {
+      const agents = data.agents ?? [];
+      setHunter(agents.find((a) => a.type === "job_hunter") ?? null);
+      setMatcher(agents.find((a) => a.type === "job_match") ?? null);
+
+      const pipelineRunning = data.pipeline?.running ?? false;
+
+      if (pipelineRunning) {
+        wasWatchingRef.current = true;
+        setPhase("running");
+        return;
+      }
+
+      if (wasWatchingRef.current) {
+        wasWatchingRef.current = false;
+        finishPipeline(data);
+      }
+    },
+    [finishPipeline]
+  );
+
+  const pollActivity = useCallback(async () => {
+    try {
+      const res = await fetch("/api/agents/activity", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as ActivityResponse;
+      applyActivity(data);
+    } catch {
+      // ignore poll errors
+    }
+  }, [applyActivity]);
+
+  useEffect(() => {
+    void pollActivity();
+    pollRef.current = setInterval(pollActivity, POLL_MS);
+    return () => stopPolling();
+  }, [pollActivity, stopPolling]);
+
+  const steps = buildSteps(
+    variant,
+    phase,
+    hunter,
+    matcher,
+    countryLabel,
+    modeLabel,
+    results,
+    providerCount
+  );
+  const progress = overallProgress(steps, hunter, matcher);
+
+  async function handleRun() {
+    completionHandledForRef.current = null;
+    setPhase("running");
+    setResults(null);
+    setStopping(false);
+    wasWatchingRef.current = true;
+
+    try {
+      const res = await fetch("/api/agents/run", { method: "POST" });
+      const data = (await res.json()) as { started?: boolean; alreadyRunning?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? copy.failRun);
+      if (data.alreadyRunning) {
+        toast.info(copy.alreadyRunningToast);
+      }
+      void pollActivity();
     } catch (err) {
-      stopPolling();
+      wasWatchingRef.current = false;
       setPhase("error");
       toast.error(err instanceof Error ? err.message : copy.failRun);
+    }
+  }
+
+  async function handleStop() {
+    setStopping(true);
+    try {
+      const res = await fetch("/api/agents/cancel", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to stop");
+      toast.info(copy.stoppingToast);
+      void pollActivity();
+    } catch (err) {
+      setStopping(false);
+      toast.error(err instanceof Error ? err.message : "Failed to stop");
     }
   }
 
@@ -384,25 +472,47 @@ export function JobSearchPipelinePanel({
           </div>
           <p className="text-xs text-muted-foreground">{copy.subtitle}</p>
         </div>
-        <Button
-          onClick={handleRun}
-          disabled={isRunning}
-          variant="premium"
-          size="sm"
-          className="shrink-0"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {copy.runningButton}
-            </>
-          ) : (
-            <>
-              <Radar className="h-4 w-4" />
-              {phase === "complete" ? copy.againButton : copy.startButton}
-            </>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          {isRunning && (
+            <Button
+              onClick={handleStop}
+              disabled={stopping}
+              variant="outline"
+              size="sm"
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              {stopping ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Stopping…
+                </>
+              ) : (
+                <>
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                  {copy.stopButton}
+                </>
+              )}
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={handleRun}
+            disabled={isRunning}
+            variant="premium"
+            size="sm"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {copy.runningButton}
+              </>
+            ) : (
+              <>
+                <Radar className="h-4 w-4" />
+                {phase === "complete" ? copy.againButton : copy.startButton}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="px-5 py-4 space-y-4">

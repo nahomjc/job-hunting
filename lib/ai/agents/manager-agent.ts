@@ -76,7 +76,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
           results: await this.investigateCompany(userId, input.jobId, input.pitchService),
         };
       case "full_pipeline":
-        return { task, results: await this.fullPipeline(userId, profile) };
+        return { task, results: await this.fullPipeline(userId, profile, ctx) };
       default:
         throw new Error(`Unknown task: ${task}`);
     }
@@ -86,13 +86,14 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
     return (await jobHunterAgent.run({ profile }, userId)).data ?? {};
   }
 
-  private async scoreJobs(userId: string, profile: Profile, limit = 20) {
+  private async scoreJobs(userId: string, profile: Profile, limit = 20, ctx?: AgentRunContext) {
     const unscored = await jobRepository.findUnscoredForUser(userId, limit);
     let scored = 0;
     let failed = 0;
     const highMatches: string[] = [];
 
     for (const job of unscored) {
+      await ctx?.assertNotCancelled();
       const result = await jobMatchAgent.run({ profile, job }, userId);
       if (!result.success || !result.data) {
         failed++;
@@ -180,9 +181,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
     return { investigationId: investigation.id, company: investigation.company };
   }
 
-  private async fullPipeline(userId: string, profile: Profile) {
+  private async fullPipeline(userId: string, profile: Profile, ctx: AgentRunContext) {
     const search = await this.searchJobs(userId, profile);
-    const scoring = await this.scoreJobs(userId, profile);
+    await ctx.assertNotCancelled();
+    const scoring = await this.scoreJobs(userId, profile, 20, ctx);
     return { search, scoring };
   }
 }

@@ -66,6 +66,7 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     const totalProviders = providers.length;
 
     for (let i = 0; i < providers.length; i++) {
+      await ctx.assertNotCancelled();
       const provider = providers[i];
       const progressBase = 15 + Math.floor((i / totalProviders) * 70);
 

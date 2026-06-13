@@ -14,9 +14,11 @@ export async function GET() {
   }
 
   try {
-    const [running, recentLogs] = await Promise.all([
+    const [running, pipelineRunning, recentLogs, latestPipelineManager] = await Promise.all([
       agentExecutionRepository.findRunning(user.id),
+      agentExecutionRepository.findPipelineRunning(user.id),
       agentExecutionRepository.findLogsForUser(user.id, 80),
+      agentExecutionRepository.findLatestPipelineManager(user.id),
     ]);
 
     const executionsByType = new Map<AgentType, Awaited<
@@ -70,6 +72,12 @@ export async function GET() {
       idle: agents.filter((a) => a.status === "idle").length,
     };
 
+    const pipelineRunningNow = pipelineRunning.length > 0;
+    const managerOutput = latestPipelineManager?.output as
+      | { results?: { search?: Record<string, unknown>; scoring?: Record<string, unknown> } }
+      | undefined;
+    const managerResults = managerOutput?.results;
+
     return NextResponse.json({
       agents: agents.map((a) => ({
         type: a.type,
@@ -97,6 +105,25 @@ export async function GET() {
       })),
       feed: allLogs,
       stats,
+      pipeline: {
+        running: pipelineRunningNow,
+        manager: latestPipelineManager
+          ? {
+              id: latestPipelineManager.id,
+              status: latestPipelineManager.status,
+              error: latestPipelineManager.error,
+              startedAt: latestPipelineManager.startedAt.toISOString(),
+              completedAt: latestPipelineManager.completedAt?.toISOString() ?? null,
+              results:
+                latestPipelineManager.status === "completed" && managerResults
+                  ? {
+                      search: managerResults.search ?? null,
+                      scoring: managerResults.scoring ?? null,
+                    }
+                  : null,
+            }
+          : null,
+      },
       polledAt: new Date().toISOString(),
     });
   } catch (error) {

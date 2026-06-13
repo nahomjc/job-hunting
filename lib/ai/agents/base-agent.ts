@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 import { requireDb, agentExecutions, agentExecutionLogs } from "@/lib/db";
 import type { AgentResult } from "@/types";
+import {
+  PipelineCancelledError,
+  PIPELINE_CANCEL_MESSAGE,
+} from "@/lib/agents/cancellation";
+import { agentExecutionRepository } from "@/lib/repositories/agent-execution-repository";
 
 export type AgentType =
   | "manager"
@@ -20,6 +25,7 @@ export interface AgentRunContext {
     message: string,
     options?: { progress?: number; level?: AgentLogLevel; metadata?: Record<string, unknown> }
   ) => Promise<void>;
+  assertNotCancelled: () => Promise<void>;
 }
 
 export abstract class BaseAgent<TInput, TOutput> {
@@ -56,6 +62,12 @@ export abstract class BaseAgent<TInput, TOutput> {
           metadata: options?.metadata,
         });
       },
+      assertNotCancelled: async () => {
+        const stillRunning = await agentExecutionRepository.isExecutionRunning(execution.id);
+        if (!stillRunning) {
+          throw new PipelineCancelledError();
+        }
+      },
     };
 
     await ctx.log(`${this.name} initialized`, { progress: 5, level: "info" });
@@ -82,6 +94,23 @@ export abstract class BaseAgent<TInput, TOutput> {
 
       return { success: true, data };
     } catch (error) {
+      if (error instanceof PipelineCancelledError) {
+        const stillRunning = await agentExecutionRepository.isExecutionRunning(execution.id);
+        if (stillRunning) {
+          await ctx.log(PIPELINE_CANCEL_MESSAGE, { level: "warn" });
+          await db
+            .update(agentExecutions)
+            .set({
+              status: "failed",
+              error: PIPELINE_CANCEL_MESSAGE,
+              durationMs: Date.now() - start,
+              completedAt: new Date(),
+            })
+            .where(eq(agentExecutions.id, execution.id));
+        }
+        return { success: false, error: PIPELINE_CANCEL_MESSAGE };
+      }
+
       const message = error instanceof Error ? error.message : "Unknown error";
       await ctx.log(message, { level: "error" });
       await db
