@@ -38,6 +38,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE job_provider AS ENUM (
   'remoteok', 'wellfound', 'remotive', 'arbeitnow',
   'remotejobs', 'himalayas', 'jobsbase', 'remnavi',
+  'jobicy', 'landing_jobs', 'weworkremotely',
   'greenhouse', 'lever', 'career_page', 'manual'
 );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -55,6 +56,9 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'himalayas';
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'jobsbase';
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remnavi';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'jobicy';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'landing_jobs';
+-- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'weworkremotely';
 
 -- ─── Users (synced from Supabase Auth) ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (

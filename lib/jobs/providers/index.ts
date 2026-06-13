@@ -6,6 +6,9 @@ import { RemoteJobsOrgProvider } from "./remotejobs-org";
 import { HimalayasProvider } from "./himalayas";
 import { JobsBaseProvider } from "./jobsbase";
 import { RemNaviProvider } from "./remnavi";
+import { JobicyProvider } from "./jobicy";
+import { LandingJobsProvider } from "./landing-jobs";
+import { WeWorkRemotelyProvider } from "./weworkremotely";
 import { GreenhouseProvider } from "./greenhouse";
 import { LeverProvider } from "./lever";
 import { CareerPageProvider } from "./career-page";
@@ -21,6 +24,9 @@ export function createDefaultProviders(): JobProviderAdapter[] {
     new HimalayasProvider(),
     new JobsBaseProvider(),
     new RemNaviProvider(),
+    new JobicyProvider(),
+    new LandingJobsProvider(),
+    new WeWorkRemotelyProvider(),
     new WellfoundProvider(), // often blocked (403) — kept for when it works
   ];
 
@@ -66,6 +72,9 @@ export {
   HimalayasProvider,
   JobsBaseProvider,
   RemNaviProvider,
+  JobicyProvider,
+  LandingJobsProvider,
+  WeWorkRemotelyProvider,
   GreenhouseProvider,
   LeverProvider,
   CareerPageProvider,
