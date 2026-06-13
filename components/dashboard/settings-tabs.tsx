@@ -18,7 +18,7 @@ const TAB_CONFIG = [
     label: "Profile & CV",
     icon: User,
     title: "Profile & CV",
-    description: "Upload your CV and keep contact details up to date for AI scoring and applications.",
+    description: "Upload your CV for AI grading, improvement tips, and contact details used in applications.",
     profileSection: "profile" as ProfileFormSection,
   },
   {

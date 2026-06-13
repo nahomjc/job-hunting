@@ -57,6 +57,11 @@ export async function importCvForUser(
 
   const profile = await profileRepository.upsert(user.id, updates);
 
+  await profileRepository.patchPreferences(user.id, {
+    cvReview: parsed.review,
+    cvReviewedAt: new Date().toISOString(),
+  });
+
   const resumeTitle = parsed.fullName
     ? `${parsed.fullName} — Master Resume`
     : "Master Resume";
@@ -72,7 +77,7 @@ export async function importCvForUser(
     action: "cv.parse",
     resource: "profiles",
     resourceId: profile.id,
-    metadata: { fileName: file.name, skillsCount: parsed.skills.length },
+    metadata: { fileName: file.name, skillsCount: parsed.skills.length, cvGrade: parsed.review.overallGrade },
   });
 
   return { parsed, profileId: profile.id, resumeId: resume.id };

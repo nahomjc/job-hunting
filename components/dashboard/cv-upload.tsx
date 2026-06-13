@@ -55,7 +55,9 @@ export function CvUpload({ onParsed }: CvUploadProps) {
 
       onParsed(data.parsed);
       router.refresh();
-      toast.success("CV parsed! Your profile and master resume were updated.");
+      toast.success(
+        `CV parsed! Grade: ${data.parsed.review.overallGrade}/100 — see improvement tips below.`
+      );
     } catch (err) {
       setFile(null);
       toast.error(err instanceof Error ? err.message : "Failed to parse CV");
@@ -116,9 +118,9 @@ export function CvUpload({ onParsed }: CvUploadProps) {
           <>
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
             <div>
-              <p className="font-medium">AI is parsing your CV…</p>
+              <p className="font-medium">AI is reviewing your CV…</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Extracting skills, experience, and building your master resume
+                Parsing skills, grading professional readiness, and building your master resume
               </p>
             </div>
           </>
@@ -135,7 +137,7 @@ export function CvUpload({ onParsed }: CvUploadProps) {
             </div>
             <div className="flex items-center gap-1.5 text-xs text-primary">
               <Sparkles className="h-3.5 w-3.5" />
-              AI will parse and create your master resume
+              AI parses your CV, grades it, and suggests improvements
             </div>
           </>
         )}

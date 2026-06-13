@@ -50,4 +50,25 @@ export const profileRepository = {
       .returning();
     return created;
   },
+
+  async patchPreferences(userId: string, patch: Record<string, unknown>) {
+    const db = requireDb();
+    const existing = await this.getByUserId(userId);
+    const preferences = { ...(existing?.preferences ?? {}), ...patch };
+
+    if (existing) {
+      const [updated] = await db
+        .update(profiles)
+        .set({ preferences, updatedAt: new Date() })
+        .where(eq(profiles.userId, userId))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(profiles)
+      .values({ userId, preferences })
+      .returning();
+    return created;
+  },
 };

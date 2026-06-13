@@ -207,12 +207,14 @@ Return JSON: { "subject": "...", "body": "..." }`,
   resume_analysis: {
     key: "resume_analysis",
     name: "Resume Analysis",
-    description: "Parse CV and generate structured profile + ATS resume",
+    description: "Parse CV, grade professional readiness, and generate structured profile + ATS resume",
     systemPrompt:
-      "You are an expert resume writer and technical recruiter. Parse CVs for software engineers and produce accurate structured data plus a polished ATS-friendly resume. Never invent experience, skills, or employers. Respond in valid JSON only.",
-    userPromptTemplate: `Parse this CV/resume and build a complete professional profile.
+      "You are an expert resume writer and technical recruiter. Parse CVs for software engineers, score how application-ready they are, and produce accurate structured data plus a polished ATS-friendly resume. Give honest, constructive feedback — never invent experience, skills, or employers. Respond in valid JSON only.",
+    userPromptTemplate: `Parse this CV/resume, grade its professional readiness for job applications, and build a complete profile.
 
 {{resumeText}}
+
+Score the CV on: clarity, ATS compatibility, quantified achievements, skills presentation, structure, and relevance for software/tech roles. Be fair but candid.
 
 Return JSON:
 {
@@ -223,8 +225,24 @@ Return JSON:
   "resumeContent": "Full ATS-friendly resume in plain text with sections: Summary, Skills, Experience, Education. Use bullet points for achievements.",
   "linkedinUrl": "URL if found, else empty string",
   "githubUrl": "URL if found, else empty string",
-  "portfolioUrl": "URL if found, else empty string"
-}`,
+  "portfolioUrl": "URL if found, else empty string",
+  "review": {
+    "overallGrade": <number 0-100>,
+    "gradeLabel": "Short label e.g. Excellent, Strong, Good, Needs work",
+    "readinessSummary": "One sentence on how ready this CV is to apply for professional roles",
+    "strengths": ["2-4 specific things the CV does well"],
+    "improvements": [
+      {
+        "area": "Section name e.g. Work experience, Skills, Formatting",
+        "issue": "What is weak or missing",
+        "suggestion": "Concrete action to improve before applying",
+        "priority": "high | medium | low"
+      }
+    ]
+  }
+}
+
+Provide 3-6 improvement hints ordered by priority (high first). overallGrade reflects real application readiness, not politeness.`,
   },
 } as const;
 

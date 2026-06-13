@@ -8,13 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { CvUpload } from "@/components/dashboard/cv-upload";
+import { CvReviewPanel } from "@/components/dashboard/cv-review-panel";
 import {
   HuntPreferencesFields,
 } from "@/components/dashboard/hunt-preferences-fields";
 import { getInitialHuntState } from "@/lib/jobs/hunt-preferences";
 import { updateProfile } from "@/app/actions/profile";
 import type { Profile } from "@/lib/db/schema";
-import type { ParsedCvResult } from "@/lib/services/cv-parser-service";
+import type { CvReview, ParsedCvResult } from "@/lib/services/cv-parser-service";
+import { parseStoredCvReview } from "@/lib/cv/cv-review";
 import { normalizeProfileUrl } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -50,6 +52,9 @@ export function ProfileForm({ profile, section }: ProfileFormProps) {
   const [huntCountry, setHuntCountry] = useState(initialHunt.huntCountry);
   const [huntMode, setHuntMode] = useState(initialHunt.huntMode);
   const [servicesOffered, setServicesOffered] = useState(initialHunt.servicesOffered);
+  const [cvReview, setCvReview] = useState<CvReview | null>(() =>
+    parseStoredCvReview(profile?.preferences as Record<string, unknown> | undefined)
+  );
 
   function handleCvParsed(data: ParsedCvResult) {
     if (data.fullName) setFullName(data.fullName);
@@ -59,6 +64,7 @@ export function ProfileForm({ profile, section }: ProfileFormProps) {
     if (data.githubUrl) setGithubUrl(normalizeProfileUrl(data.githubUrl));
     if (data.portfolioUrl) setPortfolioUrl(normalizeProfileUrl(data.portfolioUrl));
     if (data.resumeContent) setResumeText(data.resumeContent);
+    if (data.review) setCvReview(data.review);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -103,9 +109,10 @@ export function ProfileForm({ profile, section }: ProfileFormProps) {
               CV upload
             </div>
             <p className="text-xs text-muted-foreground">
-              Drop PDF, DOCX, or TXT — AI extracts skills and contact details automatically.
+              Drop PDF, DOCX, or TXT — AI extracts skills, grades your CV, and suggests how to improve it.
             </p>
             <CvUpload onParsed={handleCvParsed} />
+            {cvReview && <CvReviewPanel review={cvReview} />}
           </div>
 
           <Separator />
