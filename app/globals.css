@@ -402,8 +402,21 @@ body {
   background: hsl(var(--muted-foreground) / 0.4);
 }
 
-/* ─── Admin Dashboard (Stripe internal style) ─────────────────────────────── */
+/* ─── Admin Dashboard ─────────────────────────────────────────────────────── */
 .admin-shell {
+  --admin-bg: 0 0% 98%;
+  --admin-sidebar: 0 0% 100%;
+  --admin-surface: 0 0% 100%;
+  --admin-border: 240 6% 90%;
+  --admin-foreground: 240 10% 10%;
+  --admin-muted: 240 4% 46%;
+  --admin-accent: 234 89% 55%;
+  background: hsl(var(--admin-bg));
+  color: hsl(var(--admin-foreground));
+  font-feature-settings: "tnum" 1;
+}
+
+.dark .admin-shell {
   --admin-bg: 240 6% 5%;
   --admin-sidebar: 240 5% 7%;
   --admin-surface: 240 4% 9%;
@@ -411,9 +424,6 @@ body {
   --admin-foreground: 0 0% 96%;
   --admin-muted: 240 3% 52%;
   --admin-accent: 234 89% 68%;
-  background: hsl(var(--admin-bg));
-  color: hsl(var(--admin-foreground));
-  font-feature-settings: "tnum" 1;
 }
 
 .admin-shell .admin-metric-card {
