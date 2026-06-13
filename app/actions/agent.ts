@@ -17,6 +17,7 @@ export async function runAgentTask(task: ManagerTask, jobId?: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/jobs");
+  revalidatePath("/dashboard/hunt");
   revalidatePath("/dashboard/agents");
   return result;
 }

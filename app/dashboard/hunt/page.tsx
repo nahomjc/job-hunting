@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
-import { RunAgentButton } from "@/components/dashboard/run-agent-button";
 import { HuntSettingsControls } from "@/components/dashboard/hunt-settings-controls";
-import { getInitialHuntState } from "@/lib/jobs/hunt-preferences";
+import { HuntPipelinePanel } from "@/components/dashboard/hunt-pipeline-panel";
+import { getInitialHuntState, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
+import { createDefaultProviders } from "@/lib/jobs/providers";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { profileRepository } from "@/lib/repositories/profile-repository";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
 import { parseHuntPageFilters } from "@/lib/jobs/parse-filters";
+import { getLastHuntSummary } from "@/lib/hunt/last-run";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 
@@ -35,10 +37,12 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
 
   let profile = null;
   let totalMatches = 0;
+  let lastRun = null;
   try {
-    [profile, totalMatches] = await Promise.all([
+    [profile, totalMatches, lastRun] = await Promise.all([
       profileRepository.getByUserId(user.id),
       jobMatchRepository.findForUser(user.id).then((m) => m.length),
+      getLastHuntSummary(user.id),
     ]);
   } catch {
     // DB not configured
@@ -46,6 +50,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
 
   const filters = parseHuntPageFilters(params, profile);
   const huntState = getInitialHuntState(profile);
+  const providerCount = createDefaultProviders().length;
 
   return (
     <>
@@ -62,17 +67,21 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
                 initialMode={huntState.huntMode}
               />
             </Suspense>
-            <div className="flex flex-wrap gap-2 shrink-0 lg:pt-7">
-              <RunAgentButton label="Run country hunt" />
-              <Button asChild variant="outline" size="sm">
-                <Link href="/dashboard/settings?tab=hunt">
-                  <Settings className="h-4 w-4" />
-                  Services & more
-                </Link>
-              </Button>
-            </div>
+            <Button asChild variant="outline" size="sm" className="shrink-0 lg:mt-7">
+              <Link href="/dashboard/settings?tab=hunt">
+                <Settings className="h-4 w-4" />
+                Services & more
+              </Link>
+            </Button>
           </div>
         </div>
+
+        <HuntPipelinePanel
+          countryLabel={getCountryLabel(huntState.huntCountry)}
+          modeLabel={getHuntModeLabel(huntState.huntMode)}
+          providerCount={providerCount}
+          lastRun={lastRun}
+        />
 
         <JobsFilterToolbar basePath="/dashboard/hunt" variant="hunt" />
 
@@ -91,7 +100,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
             totalMatches={totalMatches}
             emptyDescription={
               totalMatches === 0
-                ? "Run a country hunt first, then filter scored jobs by salary, keywords, and work style."
+                ? "Start a country hunt above — results will appear here as jobs are found and scored."
                 : "No jobs match your filters. Try a broader country, “Any” hunt mode, or clear filters."
             }
           />
