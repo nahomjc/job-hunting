@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 import { matchesQuery } from "./utils";
@@ -54,7 +55,7 @@ export class RemNaviProvider implements JobProviderAdapter {
           job.location?.toLowerCase().includes("remote") ||
           false,
         tags: job.category ? [job.category] : [],
-        postedAt: job.posted_at ? new Date(job.posted_at) : undefined,
+        postedAt: parseJobPostedDate(job.posted_at),
         rawData: job as unknown as Record<string, unknown>,
       }));
   }

@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 
@@ -43,7 +44,7 @@ export class LeverProvider implements JobProviderAdapter {
         location: job.categories?.location,
         isRemote: job.categories?.location?.toLowerCase().includes("remote") ?? false,
         tags: [job.categories?.team, job.categories?.commitment].filter(Boolean) as string[],
-        postedAt: job.createdAt ? new Date(job.createdAt) : undefined,
+        postedAt: parseJobPostedDate(job.createdAt),
         rawData: job as unknown as Record<string, unknown>,
       }));
   }

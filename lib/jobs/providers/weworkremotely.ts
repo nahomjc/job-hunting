@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 import { matchesQuery, stripHtml } from "./utils";
@@ -73,7 +74,7 @@ export class WeWorkRemotelyProvider implements JobProviderAdapter {
           location: item.region || undefined,
           isRemote: true,
           tags: item.category ? [item.category] : [],
-          postedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+          postedAt: parseJobPostedDate(item.pubDate),
           rawData: item as unknown as Record<string, unknown>,
         });
 

@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 
@@ -43,7 +44,7 @@ export class GreenhouseProvider implements JobProviderAdapter {
         location: job.location?.name,
         isRemote: job.location?.name?.toLowerCase().includes("remote") ?? false,
         tags: [],
-        postedAt: job.updated_at ? new Date(job.updated_at) : undefined,
+        postedAt: parseJobPostedDate(job.updated_at),
         rawData: job as unknown as Record<string, unknown>,
       }));
   }

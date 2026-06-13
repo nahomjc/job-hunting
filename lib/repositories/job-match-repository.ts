@@ -6,6 +6,7 @@ import {
 } from "@/lib/jobs/build-job-query";
 import { inferCompanySize } from "@/lib/jobs/job-metadata";
 import { dedupeKeyFromJob } from "@/lib/jobs/dedupe";
+import { resolveJobDisplayDate } from "@/lib/jobs/parse-posted-date";
 import type { MatchScoreResult, JobMatchFilters } from "@/types";
 
 function applyCompanySizeFilter<T extends { job: typeof jobs.$inferSelect }>(
@@ -38,8 +39,8 @@ function sortRows<T extends { job: typeof jobs.$inferSelect; match: typeof jobMa
   const mode = sortBy ?? "score";
   return [...rows].sort((a, b) => {
     if (mode === "date") {
-      const da = a.job.postedAt ?? a.job.createdAt;
-      const db = b.job.postedAt ?? b.job.createdAt;
+      const da = resolveJobDisplayDate(a.job.postedAt, a.job.createdAt) ?? a.job.createdAt;
+      const db = resolveJobDisplayDate(b.job.postedAt, b.job.createdAt) ?? b.job.createdAt;
       return new Date(db).getTime() - new Date(da).getTime();
     }
     return b.match.score - a.match.score;

@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { parseJobPostedDate, resolveJobDisplayDate } from "@/lib/jobs/parse-posted-date";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -48,13 +49,28 @@ export function formatCompactNumber(value: number) {
 }
 
 export function formatDateFound(date: Date | string | null | undefined) {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
+  const parsed = parseJobPostedDate(date);
+  if (!parsed) return "—";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(d);
+  }).format(parsed);
+}
+
+export function formatJobPostedDate(
+  postedAt: Date | string | null | undefined,
+  fallback?: Date | string | null | undefined
+) {
+  const resolved = fallback
+    ? resolveJobDisplayDate(postedAt, fallback)
+    : parseJobPostedDate(postedAt);
+  if (!resolved) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(resolved);
 }
 
 export function companyInitials(name: string) {

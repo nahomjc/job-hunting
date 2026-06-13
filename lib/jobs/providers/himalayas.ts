@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 import { stripHtml } from "./utils";
@@ -60,7 +61,7 @@ export class HimalayasProvider implements JobProviderAdapter {
       location: job.locationRestrictions?.join(", "),
       isRemote: true,
       tags: [...(job.categories ?? []), ...(job.seniority ?? [])],
-      postedAt: job.pubDate ? new Date(job.pubDate) : undefined,
+      postedAt: parseJobPostedDate(job.pubDate),
       rawData: job as unknown as Record<string, unknown>,
     }));
   }

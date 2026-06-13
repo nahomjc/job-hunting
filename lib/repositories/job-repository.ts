@@ -1,6 +1,7 @@
 import { eq, and, notInArray, sql } from "drizzle-orm";
 import { requireDb, jobs, jobMatches } from "@/lib/db";
 import { buildJobDedupeKey } from "@/lib/jobs/dedupe";
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobSearchResult, JobProvider } from "@/types";
 
 export const jobRepository = {
@@ -55,7 +56,7 @@ export const jobRepository = {
         isRemote: data.isRemote,
         tags: data.tags,
         rawData: data.rawData,
-        postedAt: data.postedAt,
+        postedAt: parseJobPostedDate(data.postedAt) ?? null,
       })
       .onConflictDoUpdate({
         target: [jobs.provider, jobs.externalId],
@@ -65,6 +66,7 @@ export const jobRepository = {
           salaryMin: data.salaryMin,
           salaryMax: data.salaryMax,
           dedupeKey,
+          postedAt: parseJobPostedDate(data.postedAt) ?? null,
           updatedAt: new Date(),
         },
       })

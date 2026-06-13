@@ -7,7 +7,7 @@ import { MatchScoreBadge } from "@/components/jobs/match-score-badge";
 import { SaveJobButton } from "@/components/jobs/save-job-button";
 import { InvestigateJobButton } from "@/components/jobs/investigate-job-button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatDateFound, formatSalary } from "@/lib/utils";
+import { cn, formatJobPostedDate, formatSalary } from "@/lib/utils";
 import {
   EXPERIENCE_LABELS,
   inferExperienceLevel,
@@ -156,7 +156,7 @@ export function JobsFoundTable({ rows }: JobsFoundTableProps) {
 
                   <td className="px-4 py-3.5 hidden sm:table-cell whitespace-nowrap">
                     <span className="text-xs text-muted-foreground tabular-nums">
-                      {formatDateFound(job.postedAt ?? job.createdAt)}
+                      {formatJobPostedDate(job.postedAt, job.createdAt)}
                     </span>
                   </td>
 

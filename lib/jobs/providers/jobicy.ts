@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 import { jobicyGeoForCountry } from "@/lib/jobs/country-match";
@@ -72,7 +73,7 @@ export class JobicyProvider implements JobProviderAdapter {
         job.jobLevel,
         job.jobGeo,
       ].filter((tag): tag is string => Boolean(tag)),
-      postedAt: job.pubDate ? new Date(job.pubDate) : undefined,
+      postedAt: parseJobPostedDate(job.pubDate),
       rawData: job as unknown as Record<string, unknown>,
     }));
   }

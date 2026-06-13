@@ -1,3 +1,4 @@
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
 
@@ -66,7 +67,7 @@ export class RemotiveProvider implements JobProviderAdapter {
         location: job.candidate_required_location,
         isRemote: true,
         tags: job.tags ?? [],
-        postedAt: job.publication_date ? new Date(job.publication_date) : undefined,
+        postedAt: parseJobPostedDate(job.publication_date),
         rawData: job as unknown as Record<string, unknown>,
       }));
   }

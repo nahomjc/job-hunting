@@ -1,5 +1,6 @@
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 
 interface RemoteOKJob {
   id: string;
@@ -49,7 +50,7 @@ function mapJob(job: RemoteOKJob): JobSearchResult {
     location: job.location,
     isRemote: true,
     tags: job.tags ?? [],
-    postedAt: job.date ? new Date(job.date) : undefined,
+    postedAt: parseJobPostedDate(job.date),
     rawData: job as unknown as Record<string, unknown>,
   };
 }

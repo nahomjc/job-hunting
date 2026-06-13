@@ -1,5 +1,6 @@
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
+import { parseJobPostedDate } from "@/lib/jobs/parse-posted-date";
 
 export class WellfoundProvider implements JobProviderAdapter {
   readonly name = "wellfound" as const;
@@ -33,7 +34,7 @@ export class WellfoundProvider implements JobProviderAdapter {
         location: String(job.location ?? ""),
         isRemote: Boolean(job.remote),
         tags: (job.tags as string[]) ?? [],
-        postedAt: job.created_at ? new Date(String(job.created_at)) : undefined,
+        postedAt: parseJobPostedDate(job.created_at),
         rawData: job,
       }));
     } catch {
