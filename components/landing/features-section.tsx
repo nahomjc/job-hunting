@@ -89,13 +89,13 @@ function getStackPosition(stackIndex: number) {
 
 /** Human-like pick: grasp → pull aside → tuck to back of deck. */
 const pickKeyframes = {
-  x: ["-50%", "-47%", "12%", "-32%"] as const,
-  y: [0, -32, -44, 54] as const,
-  rotate: [0, -4, 16, 1.5] as const,
-  scale: [1, 1.05, 0.97, 0.84] as const,
-  opacity: [1, 1, 1, 0.38] as const,
-  zIndex: [40, 100, 100, 10] as const,
-  filter: ["blur(0px)", "blur(0px)", "blur(0px)", "blur(1px)"] as const,
+  x: ["-50%", "-47%", "12%", "-32%"],
+  y: [0, -32, -44, 54],
+  rotate: [0, -4, 16, 1.5],
+  scale: [1, 1.05, 0.97, 0.84],
+  opacity: [1, 1, 1, 0.38],
+  zIndex: [40, 100, 100, 10],
+  filter: ["blur(0px)", "blur(0px)", "blur(0px)", "blur(1px)"],
 };
 
 const pickTransition = {
