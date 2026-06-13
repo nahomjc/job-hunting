@@ -8,7 +8,6 @@ import { businessLeadRepository } from "@/lib/repositories/business-lead-reposit
 import { getHuntPreferences, getCountryLabel } from "@/lib/jobs/hunt-preferences";
 import {
   discoverLocalBusinessLeads,
-  DEFAULT_TARGET_LEADS,
   type LocalBusinessLead,
 } from "@/lib/services/local-business-discovery";
 import type { WebsiteStatus } from "@/lib/services/company-web-probe";
@@ -110,9 +109,7 @@ export async function scanLocalBusinessLeads(): Promise<BusinessLeadResult[]> {
   }
 
   const countryLabel = getCountryLabel(countryCode);
-  const discoveries = await discoverLocalBusinessLeads(countryCode, {
-    targetLeads: DEFAULT_TARGET_LEADS,
-  });
+  const discoveries = await discoverLocalBusinessLeads(countryCode);
 
   for (const lead of discoveries) {
     const job = await persistLeadJob(lead, countryLabel);

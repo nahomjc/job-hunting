@@ -39,7 +39,6 @@ const COUNTRY_META: Record<string, { name: string; capital: string; lat: number;
   AU: { name: "Australia", capital: "Sydney", lat: -33.8688, lon: 151.2093 },
 };
 
-const DEFAULT_TARGET_LEADS = 5;
 const DEFAULT_MAX_CANDIDATES = 80;
 const NOMINATIM_DELAY_MS = 1100;
 const OVERPASS_ENDPOINTS = [
@@ -360,9 +359,8 @@ async function evaluateCandidate(
 /** Free local discovery — OpenStreetMap + Nominatim only (no Google API key). */
 export async function discoverLocalBusinessLeads(
   countryCode: string,
-  options?: { targetLeads?: number; maxCandidates?: number }
+  options?: { maxCandidates?: number }
 ): Promise<LocalBusinessLead[]> {
-  const targetLeads = options?.targetLeads ?? DEFAULT_TARGET_LEADS;
   const maxCandidates = options?.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
 
   if (!countryCode) {
@@ -411,12 +409,11 @@ export async function discoverLocalBusinessLeads(
     const lead = await evaluateCandidate(candidate);
     if (!lead) continue;
     leads.push(lead);
-    if (leads.length >= targetLeads) break;
   }
 
   // Fallback: OSM entries with no website tag are valid leads even if domain guess hits a parked domain
   if (leads.length === 0) {
-    for (const candidate of candidates.filter((c) => !c.listedWebsite).slice(0, targetLeads)) {
+    for (const candidate of candidates.filter((c) => !c.listedWebsite)) {
       leads.push({
         ...candidate,
         websiteStatus: "missing",
@@ -429,4 +426,4 @@ export async function discoverLocalBusinessLeads(
   return leads;
 }
 
-export { COUNTRY_META, DEFAULT_TARGET_LEADS };
+export { COUNTRY_META, DEFAULT_MAX_CANDIDATES };

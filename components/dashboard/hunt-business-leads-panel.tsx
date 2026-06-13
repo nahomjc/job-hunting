@@ -85,7 +85,7 @@ export function HuntBusinessLeadsPanel({
             <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
               100% <strong>free</strong> — uses <strong>OpenStreetMap</strong> (no Google API key).
               Finds hotels, restaurants, and shops in <strong>{countryLabel}</strong>, then checks
-              which ones have no working website. Returns up to <strong>5 leads</strong> per scan.
+              which ones have no working website.
             </p>
           </div>
           <Button
@@ -104,7 +104,7 @@ export function HuntBusinessLeadsPanel({
             ) : (
               <>
                 <Globe2 className="h-4 w-4" />
-                Find 5 local leads
+                Scan local businesses
               </>
             )}
           </Button>
