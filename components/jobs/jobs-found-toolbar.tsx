@@ -10,20 +10,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface JobsFilterToolbarProps {
   basePath: string;
   variant?: "jobs" | "hunt";
+  hideSort?: boolean;
 }
 
-export function JobsFilterToolbar({ basePath, variant = "jobs" }: JobsFilterToolbarProps) {
+export function JobsFilterToolbar({
+  basePath,
+  variant = "jobs",
+  hideSort = false,
+}: JobsFilterToolbarProps) {
   const isHunt = variant === "hunt";
 
   return (
     <div className="rounded-xl border border-border/80 bg-card/40 p-4 space-y-4 shadow-sm">
-      <Suspense fallback={<Skeleton className="h-8 w-48" />}>
-        <JobsSortBar
-          basePath={basePath}
-          defaultSort={isHunt ? "date" : "score"}
-          scrollAnchor={isHunt ? "hunt-results" : "jobs-results"}
-        />
-      </Suspense>
+      {!hideSort && (
+        <Suspense fallback={<Skeleton className="h-8 w-48" />}>
+          <JobsSortBar
+            basePath={basePath}
+            defaultSort={isHunt ? "date" : "score"}
+            scrollAnchor={isHunt ? "hunt-results" : "jobs-results"}
+          />
+        </Suspense>
+      )}
       <Suspense fallback={<Skeleton className="h-10 w-full" />}>
         <JobsSearchBar
           basePath={basePath}

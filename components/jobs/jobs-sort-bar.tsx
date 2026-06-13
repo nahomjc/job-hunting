@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowDownWideNarrow, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { clearPageParam } from "@/lib/jobs/pagination";
 import type { JobSortBy } from "@/types";
 
 interface JobsSortBarProps {
@@ -26,6 +27,7 @@ export function JobsSortBar({ basePath, defaultSort = "date", scrollAnchor }: Jo
     const params = new URLSearchParams(searchParams.toString());
     if (sort === defaultSort) params.delete("sort");
     else params.set("sort", sort);
+    clearPageParam(params);
     const query = params.toString();
     const hash = scrollAnchor ? `#${scrollAnchor}` : "";
     router.push(query ? `${basePath}?${query}${hash}` : `${basePath}${hash}`);

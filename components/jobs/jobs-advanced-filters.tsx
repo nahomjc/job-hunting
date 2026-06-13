@@ -20,6 +20,7 @@ import {
   countActiveFilters,
   readFiltersFromSearchParams,
 } from "@/lib/jobs/parse-filters";
+import { clearPageParam } from "@/lib/jobs/pagination";
 import type { CompanySize, ExperienceLevel, JobMatchFilters, RemoteFilter } from "@/types";
 import {
   COMPANY_SIZE_LABELS,
@@ -83,6 +84,7 @@ function pushFilters(
     else params.delete("huntMode");
   }
 
+  clearPageParam(params);
   router.push(`${basePath}?${params.toString()}`);
 }
 

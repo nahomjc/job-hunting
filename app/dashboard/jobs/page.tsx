@@ -3,7 +3,9 @@ import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
 import { JobSearchPipelinePanel } from "@/components/dashboard/hunt-pipeline-panel";
 import { HuntBusinessLeadsPanel } from "@/components/dashboard/hunt-business-leads-panel";
+import { JobsPageTabs } from "@/components/dashboard/jobs-page-tabs";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
+import { JobsSortBar } from "@/components/jobs/jobs-sort-bar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
 import { HuntStatusBadge } from "@/components/dashboard/hunt-status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,67 +51,93 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         title="Jobs Found"
         description="AI-scored opportunities from your autonomous job search"
       />
-      <div className="flex-1 space-y-6 p-4 md:p-8">
-        <section id="jobs-results" className="scroll-mt-24 space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold">Search results</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {totalMatches > 0
-                  ? `${totalMatches} scored matches · ${totalJobs} jobs in database · sort & filter below`
-                  : "Run a search below — results appear here, newest first after each run."}
-              </p>
+      <div className="flex-1 p-4 md:p-8">
+        <Suspense
+          fallback={
+            <div className="space-y-6">
+              <Skeleton className="h-12 w-full rounded-xl" />
+              <Skeleton className="h-96 w-full rounded-xl" />
             </div>
-            <HuntStatusBadge profile={profile} />
-          </div>
-
-          <JobsFilterToolbar basePath="/dashboard/jobs" variant="jobs" />
-
-          <Suspense
-            key={JSON.stringify(filters)}
-            fallback={
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-96 w-full rounded-xl" />
+          }
+        >
+          <JobsPageTabs
+          results={
+            <section id="jobs-results" className="scroll-mt-24 space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold">Search results</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {totalMatches > 0
+                      ? `${totalMatches} scored matches · ${totalJobs} in database — sort by date or best match, then filter below`
+                      : "Run a search in the Search & score tab — results appear here after each run."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                  <Suspense fallback={<Skeleton className="h-8 w-52" />}>
+                    <JobsSortBar
+                      basePath="/dashboard/jobs"
+                      defaultSort="score"
+                      scrollAnchor="jobs-results"
+                    />
+                  </Suspense>
+                  <HuntStatusBadge profile={profile} />
+                </div>
               </div>
-            }
-          >
-            <JobsResultsSection
-              userId={user.id}
-              filters={filters}
-              totalMatches={totalMatches}
-              emptyDescription={
-                totalMatches === 0 && totalJobs === 0
-                  ? "Start a job search below to fetch listings from boards and AI-score them."
-                  : totalMatches === 0 && totalJobs > 0
-                    ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs” below.`
-                    : undefined
-              }
-            />
-          </Suspense>
-        </section>
 
-        <JobSearchPipelinePanel
-          variant="global"
-          providerCount={providerCount}
-          lastRun={lastRun}
-          basePath="/dashboard/jobs"
-          resultsAnchorId="jobs-results"
-        />
+              <JobsFilterToolbar basePath="/dashboard/jobs" variant="jobs" hideSort />
 
-        <HuntBusinessLeadsPanel />
-
-        <div className="rounded-lg border border-border/60 p-4">
-          <h3 className="text-sm font-medium">Jobs Found vs Local Hunt</h3>
-          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-            This page runs a global search using your profile skills and preferences. For
-            country-targeted hunts, use{" "}
-            <Link href="/dashboard/hunt" className="text-primary hover:underline">
-              Local Job Hunt
-            </Link>
-            .
-          </p>
-        </div>
+              <Suspense
+                key={JSON.stringify(filters)}
+                fallback={
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-96 w-full rounded-xl" />
+                  </div>
+                }
+              >
+                <JobsResultsSection
+                  userId={user.id}
+                  filters={filters}
+                  totalMatches={totalMatches}
+                  basePath="/dashboard/jobs"
+                  scrollAnchor="jobs-results"
+                  emptyDescription={
+                    totalMatches === 0 && totalJobs === 0
+                      ? "Go to Search & score to fetch listings from boards and AI-score them."
+                      : totalMatches === 0 && totalJobs > 0
+                        ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs” in the Search tab.`
+                        : undefined
+                  }
+                />
+              </Suspense>
+            </section>
+          }
+          search={
+            <>
+              <JobSearchPipelinePanel
+                variant="global"
+                providerCount={providerCount}
+                lastRun={lastRun}
+                basePath="/dashboard/jobs"
+                resultsAnchorId="jobs-results"
+                onCompleteTab="results"
+              />
+              <div className="rounded-lg border border-border/60 p-4">
+                <h3 className="text-sm font-medium">Jobs Found vs Local Hunt</h3>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                  This page runs a global search using your profile skills and preferences. For
+                  country-targeted hunts, use{" "}
+                  <Link href="/dashboard/hunt" className="text-primary hover:underline">
+                    Local Job Hunt
+                  </Link>
+                  .
+                </p>
+              </div>
+            </>
+          }
+          leads={<HuntBusinessLeadsPanel />}
+          />
+        </Suspense>
       </div>
     </>
   );

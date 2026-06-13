@@ -7,6 +7,7 @@ import { HuntBusinessLeadsPanel } from "@/components/dashboard/hunt-business-lea
 import { getInitialHuntState, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
 import { createDefaultProviders } from "@/lib/jobs/providers";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
+import { JobsSortBar } from "@/components/jobs/jobs-sort-bar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -78,13 +79,24 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
         </div>
 
         <section id="hunt-results" className="scroll-mt-24 space-y-4">
-          <div>
-            <h2 className="text-base font-semibold">Hunt results</h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Sorted by newest first. Use filters to narrow by country, salary, or keywords.
-            </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Hunt results</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {totalMatches > 0
+                  ? `${totalMatches} scored jobs — sort by date or best match, then filter below`
+                  : "Start a country hunt below — results appear here after scoring."}
+              </p>
+            </div>
+            <Suspense fallback={<Skeleton className="h-8 w-52" />}>
+              <JobsSortBar
+                basePath="/dashboard/hunt"
+                defaultSort="date"
+                scrollAnchor="hunt-results"
+              />
+            </Suspense>
           </div>
-          <JobsFilterToolbar basePath="/dashboard/hunt" variant="hunt" />
+          <JobsFilterToolbar basePath="/dashboard/hunt" variant="hunt" hideSort />
           <Suspense
             key={JSON.stringify(filters)}
             fallback={
@@ -98,6 +110,8 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
               userId={user.id}
               filters={filters}
               totalMatches={totalMatches}
+              basePath="/dashboard/hunt"
+              scrollAnchor="hunt-results"
               emptyDescription={
                 totalMatches === 0
                   ? "Start a country hunt below — scored jobs will appear here, newest first."

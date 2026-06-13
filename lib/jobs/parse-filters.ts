@@ -1,5 +1,6 @@
 import type { Profile } from "@/lib/db/schema";
 import { getHuntPreferences, type HuntMode } from "@/lib/jobs/hunt-preferences";
+import { DEFAULT_JOB_PAGE_SIZE, parsePage } from "@/lib/jobs/pagination";
 import type { CompanySize, ExperienceLevel, JobMatchFilters, JobSortBy, RemoteFilter } from "@/types";
 
 function parseRemoteFilter(remoteParam?: string): RemoteFilter {
@@ -34,6 +35,8 @@ export function parseJobFilters(params: Record<string, string | undefined>): Job
     huntCountry: params.country || undefined,
     huntMode: parseHuntMode(params.huntMode),
     sortBy: params.sort ? parseSort(params.sort) : undefined,
+    page: parsePage(params.page),
+    pageSize: DEFAULT_JOB_PAGE_SIZE,
   };
 }
 
@@ -47,6 +50,8 @@ export function parseHuntResultsFilters(
     huntCountry: params.country || undefined,
     huntMode: parseHuntMode(params.huntMode),
     sortBy: parseSort(params.sort),
+    page: parsePage(params.page),
+    pageSize: DEFAULT_JOB_PAGE_SIZE,
   };
 }
 
@@ -89,6 +94,10 @@ export function filtersToSearchParams(
 
   if (filters.sortBy && filters.sortBy !== "date") {
     params.set("sort", filters.sortBy);
+  }
+
+  if (filters.page && filters.page > 1) {
+    params.set("page", String(filters.page));
   }
 
   return params;

@@ -7,6 +7,7 @@ import {
 import { inferCompanySize } from "@/lib/jobs/job-metadata";
 import { dedupeKeyFromJob } from "@/lib/jobs/dedupe";
 import { resolveJobDisplayDate } from "@/lib/jobs/parse-posted-date";
+import { DEFAULT_JOB_PAGE_SIZE, paginateSlice } from "@/lib/jobs/pagination";
 import type { MatchScoreResult, JobMatchFilters } from "@/types";
 
 function applyCompanySizeFilter<T extends { job: typeof jobs.$inferSelect }>(
@@ -47,6 +48,34 @@ function sortRows<T extends { job: typeof jobs.$inferSelect; match: typeof jobMa
   });
 }
 
+type JobMatchRow = {
+  match: typeof jobMatches.$inferSelect;
+  job: typeof jobs.$inferSelect;
+  application: typeof applications.$inferSelect | null;
+};
+
+async function fetchMatchRows(userId: string, filters: JobMatchFilters): Promise<JobMatchRow[]> {
+  const db = requireDb();
+  const conditions = buildJobFilterConditions(userId, filters);
+
+  const rows = await db
+    .select({
+      match: jobMatches,
+      job: jobs,
+      application: applications,
+    })
+    .from(jobMatches)
+    .innerJoin(jobs, eq(jobMatches.jobId, jobs.id))
+    .leftJoin(
+      applications,
+      and(eq(applications.jobId, jobs.id), eq(applications.userId, userId))
+    )
+    .where(and(...conditions))
+    .orderBy(desc(jobMatches.score));
+
+  return dedupeRows(applyCompanySizeFilter(rows, filters));
+}
+
 export const jobMatchRepository = {
   async upsert(userId: string, jobId: string, score: MatchScoreResult) {
     const db = requireDb();
@@ -75,30 +104,28 @@ export const jobMatchRepository = {
   },
 
   async findForUser(userId: string, filters: JobMatchFilters = {}) {
-    const db = requireDb();
-    const conditions = buildJobFilterConditions(userId, filters);
+    const rows = await fetchMatchRows(userId, filters);
+    return sortRows(rows, filters.sortBy);
+  },
 
-    const rows = await db
-      .select({
-        match: jobMatches,
-        job: jobs,
-        application: applications,
-      })
-      .from(jobMatches)
-      .innerJoin(jobs, eq(jobMatches.jobId, jobs.id))
-      .leftJoin(
-        applications,
-        and(eq(applications.jobId, jobs.id), eq(applications.userId, userId))
-      )
-      .where(and(...conditions))
-      .orderBy(desc(jobMatches.score));
-
-    const deduped = dedupeRows(applyCompanySizeFilter(rows, filters));
-    return sortRows(deduped, filters.sortBy);
+  async findPageForUser(userId: string, filters: JobMatchFilters = {}) {
+    const sorted = sortRows(await fetchMatchRows(userId, filters), filters.sortBy);
+    const pageSize = filters.pageSize ?? DEFAULT_JOB_PAGE_SIZE;
+    const page = filters.page ?? 1;
+    const slice = paginateSlice(sorted, page, pageSize);
+    return {
+      rows: slice.rows,
+      total: slice.total,
+      page: slice.page,
+      pageSize: slice.pageSize,
+      totalPages: slice.totalPages,
+      rangeStart: slice.rangeStart,
+      rangeEnd: slice.rangeEnd,
+    };
   },
 
   async countForUser(userId: string, filters: JobMatchFilters = {}) {
-    const rows = await this.findForUser(userId, filters);
+    const rows = await fetchMatchRows(userId, filters);
     return rows.length;
   },
 

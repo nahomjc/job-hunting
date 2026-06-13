@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "@/lib/agents/activity-display";
 import { PIPELINE_CANCEL_MESSAGE } from "@/lib/agents/cancellation";
+import { clearPageParam } from "@/lib/jobs/pagination";
 import type { LastHuntSummary } from "@/lib/hunt/last-run";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -33,6 +34,8 @@ export interface JobSearchPipelinePanelProps {
   resultsAnchorId: string;
   countryLabel?: string;
   modeLabel?: string;
+  /** URL tab param to switch to when pipeline completes (e.g. jobs page tabs). */
+  onCompleteTab?: string;
 }
 
 type StepState = "pending" | "active" | "complete" | "error";
@@ -281,6 +284,7 @@ export function JobSearchPipelinePanel({
   resultsAnchorId,
   countryLabel = "Any country",
   modeLabel = "Any",
+  onCompleteTab,
 }: JobSearchPipelinePanelProps) {
   const copy = COPY[variant];
   const router = useRouter();
@@ -346,11 +350,13 @@ export function JobSearchPipelinePanel({
           params.delete("huntMode");
         }
         params.set("sort", "date");
+        clearPageParam(params);
+        if (onCompleteTab) params.set("tab", onCompleteTab);
         router.push(`${basePath}?${params.toString()}#${resultsAnchorId}`);
         router.refresh();
       }
     },
-    [basePath, copy, resultsAnchorId, router, variant]
+    [basePath, copy, onCompleteTab, resultsAnchorId, router, variant]
   );
 
   const applyActivity = useCallback(

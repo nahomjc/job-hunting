@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { HuntCountrySelect, HuntModeSelect } from "@/components/dashboard/hunt-select-fields";
 import { updateHuntPreferences } from "@/app/actions/profile";
+import { clearPageParam } from "@/lib/jobs/pagination";
 import type { HuntMode } from "@/lib/jobs/hunt-preferences";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ function syncHuntUrl(
   else params.delete("country");
   if (mode && mode !== "any") params.set("huntMode", mode);
   else params.delete("huntMode");
+  clearPageParam(params);
   router.push(`/dashboard/hunt?${params.toString()}`);
 }
 

@@ -103,6 +103,8 @@ export interface JobMatchFilters {
   huntCountry?: string;
   huntMode?: import("@/lib/jobs/hunt-preferences").HuntMode;
   sortBy?: JobSortBy;
+  page?: number;
+  pageSize?: number;
 }
 
 export type NotificationWithMeta = Notification;

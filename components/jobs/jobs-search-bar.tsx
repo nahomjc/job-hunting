@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { clearPageParam } from "@/lib/jobs/pagination";
 
 interface JobsSearchBarProps {
   basePath: string;
@@ -33,6 +34,7 @@ export function JobsSearchBar({
       } else {
         params.delete("q");
       }
+      clearPageParam(params);
       router.push(`${basePath}?${params.toString()}`);
     },
     [router, searchParams, basePath]

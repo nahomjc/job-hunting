@@ -7,6 +7,7 @@ import {
   readFiltersFromSearchParams,
   filtersToSearchParams,
 } from "@/lib/jobs/parse-filters";
+import { clearPageParam } from "@/lib/jobs/pagination";
 import {
   getCountryLabel,
   getHuntModeLabel,
@@ -44,6 +45,7 @@ export function JobsActiveFilters({ basePath, variant = "jobs" }: JobsActiveFilt
     const q = merged.q ?? merged.search;
     if (q) params.set("q", q);
     else params.delete("q");
+    clearPageParam(params);
     router.push(`${basePath}?${params.toString()}`);
   }
 
