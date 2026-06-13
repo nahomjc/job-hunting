@@ -2,6 +2,7 @@
 
 import { LandingNav } from "./landing-nav";
 import { HeroSection } from "./hero-section";
+import { CandidateJourneySection } from "./candidate-journey-section";
 import { HowItWorksSection } from "./how-it-works-section";
 import { FeaturesSection } from "./features-section";
 import { PricingSection } from "./pricing-section";
@@ -20,6 +21,7 @@ export function LandingPage({ user = null }: LandingPageProps) {
       <LandingNav user={user} />
       <main className="flex-1">
         <HeroSection />
+        <CandidateJourneySection />
         <HowItWorksSection />
         <FeaturesSection />
         <PricingSection />

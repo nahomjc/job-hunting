@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const links = [
+  { href: "#journey", label: "Upload & match" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#pricing", label: "Pricing" },
