@@ -86,6 +86,9 @@ export const jobProviderEnum = pgEnum("job_provider", [
   "lever",
   "career_page",
   "manual",
+  "ethiojobs",
+  "afriwork",
+  "hahujobs",
 ]);
 
 export const subscriptionPlanEnum = pgEnum("subscription_plan", [

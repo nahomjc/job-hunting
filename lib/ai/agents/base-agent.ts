@@ -6,6 +6,7 @@ import {
   PIPELINE_CANCEL_MESSAGE,
 } from "@/lib/agents/cancellation";
 import { agentExecutionRepository } from "@/lib/repositories/agent-execution-repository";
+import { formatAgentError } from "@/lib/agents/format-agent-error";
 
 export type AgentType =
   | "manager"
@@ -111,7 +112,7 @@ export abstract class BaseAgent<TInput, TOutput> {
         return { success: false, error: PIPELINE_CANCEL_MESSAGE };
       }
 
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message = formatAgentError(error);
       await ctx.log(message, { level: "error" });
       await db
         .update(agentExecutions)

@@ -7,6 +7,22 @@ import { interviewRepository } from "@/lib/repositories/interview-repository";
 import { profileRepository } from "@/lib/repositories/profile-repository";
 import { interviewAgent } from "@/lib/ai/agents/interview-agent";
 import { rateLimit } from "@/lib/security/rate-limit";
+import {
+  buildInterviewVideoSearchQueries,
+  youtubeSearchUrl,
+} from "@/lib/interviews/prep-video-topics";
+import { searchYouTubeVideos, type YouTubeVideoSuggestion } from "@/lib/services/youtube-search";
+
+export interface InterviewPrepVideoSearchLink {
+  label: string;
+  url: string;
+}
+
+export interface InterviewPrepVideosResult {
+  videos: YouTubeVideoSuggestion[];
+  searchLinks: InterviewPrepVideoSearchLink[];
+  youtubeApiEnabled: boolean;
+}
 
 export async function generateInterviewPrep(applicationId: string, stage = "technical") {
   const user = await getAuthUser();
@@ -46,4 +62,37 @@ export async function generateInterviewPrep(applicationId: string, stage = "tech
   revalidatePath("/dashboard/applications");
 
   return { success: true };
+}
+
+export async function fetchInterviewPrepVideos(
+  applicationId: string
+): Promise<InterviewPrepVideosResult> {
+  const user = await getAuthUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const limit = rateLimit(`interview-videos:${user.id}`, 30, 60_000);
+  if (!limit.success) throw new Error("Rate limit exceeded. Try again later.");
+
+  const row = await applicationRepository.findById(user.id, applicationId);
+  if (!row) throw new Error("Application not found");
+
+  if (row.application.status !== "interview_scheduled") {
+    throw new Error("Application is not in the interview stage.");
+  }
+
+  const interview = await interviewRepository.findByApplicationId(user.id, applicationId);
+  const stage = interview?.stage ?? "other";
+
+  const profile = await profileRepository.getByUserId(user.id);
+  const queries = buildInterviewVideoSearchQueries(row.job, stage, profile?.skills ?? undefined);
+
+  const searchLinks: InterviewPrepVideoSearchLink[] = queries.map((query) => ({
+    label: query,
+    url: youtubeSearchUrl(query),
+  }));
+
+  const youtubeApiEnabled = Boolean(process.env.YOUTUBE_API_KEY?.trim());
+  const videos = youtubeApiEnabled ? await searchYouTubeVideos(queries) : [];
+
+  return { videos, searchLinks, youtubeApiEnabled };
 }

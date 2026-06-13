@@ -1,8 +1,13 @@
 import { BaseAgent, type AgentRunContext } from "./base-agent";
-import { createDefaultProviders } from "@/lib/jobs/providers";
+import { createProvidersForHunt } from "@/lib/jobs/providers";
 import { buildJobDedupeKey } from "@/lib/jobs/dedupe";
 import { filterJobsByHunt } from "@/lib/jobs/country-match";
-import { getHuntPreferences, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
+import { ETHIOPIA_PROVIDER_LABELS, shouldUseEthiopiaProviders } from "@/lib/jobs/ethiopia-hunt";
+import {
+  getHuntPreferences,
+  getCountryLabel,
+  getHuntModeLabel,
+} from "@/lib/jobs/hunt-preferences";
 import { jobRepository } from "@/lib/repositories/job-repository";
 import type { JobSearchResult } from "@/types";
 import type { Profile } from "@/lib/db/schema";
@@ -47,7 +52,7 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     const huntPrefs = getHuntPreferences(profile.preferences);
     const huntCountry = huntPrefs.huntCountry;
     const huntMode = huntPrefs.huntMode ?? "any";
-    const providers = createDefaultProviders();
+    const providers = createProvidersForHunt(profile, huntCountry);
     const seen = new Set<string>();
     let found = 0;
     let saved = 0;
@@ -60,6 +65,12 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
         `Targeting ${getCountryLabel(huntCountry)} — ${getHuntModeLabel(huntMode)}`,
         { progress: 12 }
       );
+      if (shouldUseEthiopiaProviders(profile, huntCountry)) {
+        await ctx.log(
+          `Including Ethiopia boards: ${ETHIOPIA_PROVIDER_LABELS.join(", ")}`,
+          { progress: 13 }
+        );
+      }
     }
     await ctx.log(`Scanning ${providers.length} job board sources…`, { progress: 15 });
 

@@ -5,6 +5,7 @@ import { extractTextFromCv } from "@/lib/services/cv-extract";
 import { parseCvWithAi, type ParsedCvResult } from "@/lib/services/cv-parser-service";
 import { logAudit } from "@/lib/security/audit";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { profileIndicatesEthiopia } from "@/lib/jobs/ethiopia-hunt";
 import { normalizeProfileUrl } from "@/lib/utils";
 
 export interface ImportCvResult {
@@ -41,11 +42,26 @@ export async function importCvForUser(
     linkedinUrl: string;
     githubUrl: string;
     portfolioUrl: string;
+    preferredLocations: string[];
   }> = {
     skills: parsed.skills,
     yearsOfExperience: parsed.yearsOfExperience,
     resumeText: parsed.resumeContent,
   };
+
+  const inferredProfile = {
+    ...existing,
+    ...updates,
+    preferredLocations: existing?.preferredLocations ?? [],
+    resumeText: parsed.resumeContent,
+  } as NonNullable<typeof existing>;
+
+  if (
+    profileIndicatesEthiopia(inferredProfile) &&
+    (existing?.preferredLocations?.length ?? 0) === 0
+  ) {
+    updates.preferredLocations = ["Addis Ababa, Ethiopia"];
+  }
 
   if (parsed.fullName) updates.fullName = parsed.fullName;
   if (parsed.linkedinUrl) updates.linkedinUrl = normalizeProfileUrl(parsed.linkedinUrl);

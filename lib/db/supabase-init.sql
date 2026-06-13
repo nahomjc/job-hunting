@@ -39,7 +39,8 @@ DO $$ BEGIN CREATE TYPE job_provider AS ENUM (
   'remoteok', 'wellfound', 'remotive', 'arbeitnow',
   'remotejobs', 'himalayas', 'jobsbase', 'remnavi',
   'jobicy', 'landing_jobs', 'weworkremotely',
-  'greenhouse', 'lever', 'career_page', 'manual'
+  'greenhouse', 'lever', 'career_page', 'manual',
+  'ethiojobs', 'afriwork', 'hahujobs'
 );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 

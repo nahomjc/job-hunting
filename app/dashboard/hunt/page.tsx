@@ -6,7 +6,7 @@ import { HuntPipelinePanel } from "@/components/dashboard/hunt-pipeline-panel";
 import { HuntBusinessLeadsPanel } from "@/components/dashboard/hunt-business-leads-panel";
 import { HuntJobsPageTabs } from "@/components/dashboard/jobs-page-tabs";
 import { getInitialHuntState, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
-import { createDefaultProviders } from "@/lib/jobs/providers";
+import { countProvidersForHunt, ethiopiaProvidersEnabled } from "@/lib/jobs/providers";
 import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
 import { JobsSortBar } from "@/components/jobs/jobs-sort-bar";
 import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
@@ -64,7 +64,8 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
 
   const filters = parseHuntResultsFilters(params);
   const huntState = getInitialHuntState(profile);
-  const providerCount = createDefaultProviders().length;
+  const providerCount = countProvidersForHunt(profile, huntState.huntCountry);
+  const ethiopiaBoards = ethiopiaProvidersEnabled(profile, huntState.huntCountry);
   const countryLabel = getCountryLabel(huntState.huntCountry);
 
   try {
@@ -152,6 +153,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
                   countryLabel={countryLabel}
                   modeLabel={getHuntModeLabel(huntState.huntMode)}
                   providerCount={providerCount}
+                  ethiopiaBoardsEnabled={ethiopiaBoards}
                   lastRun={lastRun}
                 />
                 <div className="grid gap-4 md:grid-cols-2">

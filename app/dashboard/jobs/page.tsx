@@ -16,7 +16,7 @@ import { jobRepository } from "@/lib/repositories/job-repository";
 import { parseJobFilters } from "@/lib/jobs/parse-filters";
 import { getInitialHuntState, getCountryLabel } from "@/lib/jobs/hunt-preferences";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
-import { createDefaultProviders } from "@/lib/jobs/providers";
+import { countProvidersForHunt, ethiopiaProvidersEnabled } from "@/lib/jobs/providers";
 import { getLocalBusinessLeads } from "@/app/actions/business-leads";
 
 interface JobsPageProps {
@@ -46,8 +46,9 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     // DB not configured
   }
 
-  const providerCount = createDefaultProviders().length;
   const huntCountry = profile ? getInitialHuntState(profile).huntCountry : "";
+  const providerCount = countProvidersForHunt(profile, huntCountry);
+  const ethiopiaBoards = ethiopiaProvidersEnabled(profile, huntCountry);
 
   try {
     if (huntCountry) {
@@ -130,6 +131,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
               <JobSearchPipelinePanel
                 variant="global"
                 providerCount={providerCount}
+                ethiopiaBoardsEnabled={ethiopiaBoards}
                 lastRun={lastRun}
                 basePath="/dashboard/jobs"
                 resultsAnchorId="jobs-results"

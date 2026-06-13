@@ -34,6 +34,7 @@ export interface JobSearchPipelinePanelProps {
   resultsAnchorId: string;
   countryLabel?: string;
   modeLabel?: string;
+  ethiopiaBoardsEnabled?: boolean;
   /** URL tab param to switch to when pipeline completes (e.g. jobs page tabs). */
   onCompleteTab?: string;
 }
@@ -284,6 +285,7 @@ export function JobSearchPipelinePanel({
   resultsAnchorId,
   countryLabel = "Any country",
   modeLabel = "Any",
+  ethiopiaBoardsEnabled = false,
   onCompleteTab,
 }: JobSearchPipelinePanelProps) {
   const copy = COPY[variant];
@@ -477,6 +479,11 @@ export function JobSearchPipelinePanel({
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">{copy.subtitle}</p>
+          {ethiopiaBoardsEnabled && (
+            <p className="text-xs text-primary/90 mt-1">
+              Also scanning EthioJobs, Afriwork, and HaHu Jobs for Ethiopia-based roles.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           {isRunning && (

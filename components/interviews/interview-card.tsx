@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateInterviewPrep } from "@/app/actions/interviews";
+import { InterviewPrepVideos } from "@/components/interviews/interview-prep-videos";
 import type { Application, Interview, Job } from "@/lib/db/schema";
 import { toast } from "sonner";
 
@@ -104,6 +105,8 @@ export function InterviewCard({ interview, job, application }: InterviewCardProp
             </Button>
           </div>
         )}
+
+        <InterviewPrepVideos applicationId={application.id} />
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Badge variant="secondary" className="capitalize">
