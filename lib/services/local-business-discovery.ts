@@ -20,27 +20,27 @@ export interface LocalBusinessLead extends LocalBusinessCandidate {
   analysisNote: string;
 }
 
-const COUNTRY_META: Record<string, { name: string; capital: string }> = {
-  ET: { name: "Ethiopia", capital: "Addis Ababa" },
-  US: { name: "United States", capital: "New York" },
-  GB: { name: "United Kingdom", capital: "London" },
-  DE: { name: "Germany", capital: "Berlin" },
-  PT: { name: "Portugal", capital: "Lisbon" },
-  IN: { name: "India", capital: "Mumbai" },
-  BR: { name: "Brazil", capital: "São Paulo" },
-  CA: { name: "Canada", capital: "Toronto" },
-  NL: { name: "Netherlands", capital: "Amsterdam" },
-  FR: { name: "France", capital: "Paris" },
-  ES: { name: "Spain", capital: "Madrid" },
-  KE: { name: "Kenya", capital: "Nairobi" },
-  NG: { name: "Nigeria", capital: "Lagos" },
-  ZA: { name: "South Africa", capital: "Johannesburg" },
-  AE: { name: "United Arab Emirates", capital: "Dubai" },
-  AU: { name: "Australia", capital: "Sydney" },
+const COUNTRY_META: Record<string, { name: string; capital: string; lat: number; lon: number }> = {
+  ET: { name: "Ethiopia", capital: "Addis Ababa", lat: 9.032, lon: 38.7469 },
+  US: { name: "United States", capital: "New York", lat: 40.7128, lon: -74.006 },
+  GB: { name: "United Kingdom", capital: "London", lat: 51.5074, lon: -0.1278 },
+  DE: { name: "Germany", capital: "Berlin", lat: 52.52, lon: 13.405 },
+  PT: { name: "Portugal", capital: "Lisbon", lat: 38.7223, lon: -9.1393 },
+  IN: { name: "India", capital: "Mumbai", lat: 19.076, lon: 72.8777 },
+  BR: { name: "Brazil", capital: "São Paulo", lat: -23.5505, lon: -46.6333 },
+  CA: { name: "Canada", capital: "Toronto", lat: 43.6532, lon: -79.3832 },
+  NL: { name: "Netherlands", capital: "Amsterdam", lat: 52.3676, lon: 4.9041 },
+  FR: { name: "France", capital: "Paris", lat: 48.8566, lon: 2.3522 },
+  ES: { name: "Spain", capital: "Madrid", lat: 40.4168, lon: -3.7038 },
+  KE: { name: "Kenya", capital: "Nairobi", lat: -1.2921, lon: 36.8219 },
+  NG: { name: "Nigeria", capital: "Lagos", lat: 6.5244, lon: 3.3792 },
+  ZA: { name: "South Africa", capital: "Johannesburg", lat: -26.2041, lon: 28.0473 },
+  AE: { name: "United Arab Emirates", capital: "Dubai", lat: 25.2048, lon: 55.2708 },
+  AU: { name: "Australia", capital: "Sydney", lat: -33.8688, lon: 151.2093 },
 };
 
 const DEFAULT_TARGET_LEADS = 5;
-const DEFAULT_MAX_CANDIDATES = 60;
+const DEFAULT_MAX_CANDIDATES = 80;
 const NOMINATIM_DELAY_MS = 1100;
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -297,14 +297,33 @@ out center 80;
   return mapOverpassElements(rows, countryLabel, meta.capital);
 }
 
+function isMapOrDirectoryHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return /openstreetmap|nominatim|google\.|bing\.com|facebook\.com|instagram\.com/i.test(host);
+  } catch {
+    return true;
+  }
+}
+
+function prioritizeCandidates(candidates: LocalBusinessCandidate[]): LocalBusinessCandidate[] {
+  return [...candidates].sort((a, b) => {
+    const aNoSite = a.listedWebsite ? 1 : 0;
+    const bNoSite = b.listedWebsite ? 1 : 0;
+    return aNoSite - bNoSite;
+  });
+}
+
 async function evaluateCandidate(
   candidate: LocalBusinessCandidate
 ): Promise<LocalBusinessLead | null> {
-  if (candidate.listedWebsite) {
+  const listedWebsite = candidate.listedWebsite?.trim();
+
+  if (listedWebsite && !isMapOrDirectoryHost(listedWebsite)) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(candidate.listedWebsite, {
+      const res = await fetch(listedWebsite, {
         method: "HEAD",
         signal: controller.signal,
         headers: { "User-Agent": "JobHunter-AI/1.0" },
@@ -313,19 +332,28 @@ async function evaluateCandidate(
       clearTimeout(timeout);
       if (res.ok || res.status === 405) return null;
     } catch {
-      // listed site broken — keep as lead
+      return {
+        ...candidate,
+        websiteStatus: "unreachable",
+        needsWebsite: true,
+        analysisNote: buildAnalysisNote(candidate, "unreachable"),
+      };
     }
   }
 
-  const probe = await probeCompanyWebsite(candidate.name, candidate.listingUrl);
+  // Never pass map listing URLs into domain probe — they always return "found"
+  const probe = await probeCompanyWebsite(candidate.name, undefined);
   if (probe.status === "found") return null;
 
   return {
     ...candidate,
-    websiteStatus: probe.status,
+    websiteStatus: listedWebsite ? "unreachable" : probe.status,
     probedUrl: probe.url,
     needsWebsite: true,
-    analysisNote: buildAnalysisNote(candidate, probe.status),
+    analysisNote: buildAnalysisNote(
+      candidate,
+      listedWebsite ? "unreachable" : probe.status
+    ),
   };
 }
 
@@ -350,27 +378,32 @@ export async function discoverLocalBusinessLeads(
   const countryName = meta.name;
 
   const nominatimQueries = [
-    `hotel ${capital}`,
-    `restaurant ${capital}`,
+    `hotel ${capital} ${countryName}`,
+    `restaurant ${capital} ${countryName}`,
     `cafe ${capital}`,
     `guest house ${capital}`,
-    `shop ${capital}`,
+    `shop ${capital} ${countryName}`,
+    `pharmacy ${capital}`,
   ];
 
-  const geo = await geocodeCapital(capital, countryName);
+  const geo =
+    (await geocodeCapital(capital, countryName)) ?? {
+      lat: meta.lat,
+      lon: meta.lon,
+    };
+
+  // Nominatim rate limit: run after geocode, not in parallel with other Nominatim calls
   await sleep(NOMINATIM_DELAY_MS);
 
   const [nominatimResults, cityOsmResults, countryOsmResults] = await Promise.all([
     searchNominatim(countryCode, nominatimQueries),
-    geo ? searchOpenStreetMapAroundCity(countryCode, geo) : Promise.resolve([]),
+    searchOpenStreetMapAroundCity(countryCode, geo),
     searchOpenStreetMapCountry(countryCode),
   ]);
 
-  const candidates = dedupeCandidates([
-    ...cityOsmResults,
-    ...nominatimResults,
-    ...countryOsmResults,
-  ]).slice(0, maxCandidates);
+  const candidates = prioritizeCandidates(
+    dedupeCandidates([...cityOsmResults, ...nominatimResults, ...countryOsmResults])
+  ).slice(0, maxCandidates);
 
   const leads: LocalBusinessLead[] = [];
 
@@ -379,6 +412,18 @@ export async function discoverLocalBusinessLeads(
     if (!lead) continue;
     leads.push(lead);
     if (leads.length >= targetLeads) break;
+  }
+
+  // Fallback: OSM entries with no website tag are valid leads even if domain guess hits a parked domain
+  if (leads.length === 0) {
+    for (const candidate of candidates.filter((c) => !c.listedWebsite).slice(0, targetLeads)) {
+      leads.push({
+        ...candidate,
+        websiteStatus: "missing",
+        needsWebsite: true,
+        analysisNote: buildAnalysisNote(candidate, "missing"),
+      });
+    }
   }
 
   return leads;

@@ -50,6 +50,11 @@ export async function probeCompanyWebsite(
     "jobicy.com",
     "landing.jobs",
     "weworkremotely.com",
+    "openstreetmap.org",
+    "www.openstreetmap.org",
+    "nominatim.openstreetmap.org",
+    "maps.google.com",
+    "www.google.com",
   ]);
 
   const domains = guessDomains(company);
