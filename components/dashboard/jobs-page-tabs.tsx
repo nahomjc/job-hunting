@@ -52,7 +52,7 @@ const HUNT_TAB_CONFIG: TabConfigItem[] = [
     value: "leads",
     label: "Business leads",
     icon: Building2,
-    description: "Scan maps in your hunt country for local businesses that need a website.",
+    description: "Free OpenStreetMap scan — local businesses in your hunt country that need a website.",
   },
 ];
 
