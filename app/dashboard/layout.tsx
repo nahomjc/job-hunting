@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/supabase/server";
 import { userService } from "@/lib/services/user-service";
+import { isAdminEmail, isAdminUser } from "@/lib/auth/user-access";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
+import { UserSessionProvider } from "@/components/dashboard/user-session-provider";
 
 export default async function DashboardLayout({
   children,
@@ -12,19 +14,25 @@ export default async function DashboardLayout({
   const user = await getAuthUser();
   if (!user) redirect("/login");
 
+  let isAdmin = isAdminEmail(user.email);
+
   try {
-    await userService.syncFromAuth(user);
+    const dbUser = await userService.syncFromAuth(user);
+    if (dbUser?.blocked) redirect("/blocked");
+    if (dbUser) isAdmin = isAdminUser(dbUser);
   } catch {
     // DB not configured yet — allow dashboard to load for UI preview
   }
 
   return (
-    <div className="flex min-h-screen bg-grid">
-      <Sidebar />
-      <div className="flex flex-1 flex-col pb-16 md:pb-0 min-w-0">
-        {children}
+    <UserSessionProvider isAdmin={isAdmin}>
+      <div className="flex min-h-screen bg-grid">
+        <Sidebar />
+        <div className="flex flex-1 flex-col pb-16 md:pb-0 min-w-0">
+          {children}
+        </div>
+        <MobileNav />
       </div>
-      <MobileNav />
-    </div>
+    </UserSessionProvider>
   );
 }

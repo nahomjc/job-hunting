@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Users, UserCheck, CreditCard } from "lucide-react";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { MetricCard } from "@/components/admin/metric-card";
@@ -28,7 +29,7 @@ export default async function AdminUsersPage() {
     <>
       <AdminHeader
         title="Users"
-        description="Account growth, activity, and subscription distribution"
+        description="Manage accounts, roles, access, and CV grades"
       />
       <div className="flex-1 space-y-6 p-6">
         <div className="grid gap-4 sm:grid-cols-3">
@@ -70,25 +71,38 @@ export default async function AdminUsersPage() {
           </SectionPanel>
         </div>
 
-        <SectionPanel title="Recent Users" description="Latest sign-ups and activity">
+        <SectionPanel title="All users" description="Click a user to view details, CV grade, and manage access">
           <DataTable
             columns={[
               { key: "email", label: "Email" },
+              { key: "role", label: "Role" },
+              { key: "access", label: "Access" },
               { key: "plan", label: "Plan" },
-              { key: "status", label: "Status" },
               { key: "lastActive", label: "Last Active", mono: true },
               { key: "joined", label: "Joined", mono: true },
             ]}
             rows={metrics.recentUsers.map((u) => ({
-              email: u.email,
+              email: (
+                <Link
+                  href={`/admin/users/${u.id}`}
+                  className="text-[hsl(var(--admin-accent))] hover:underline"
+                >
+                  {u.email}
+                </Link>
+              ),
+              role: (
+                <StatusPill variant={u.role === "admin" ? "accent" : "default"}>
+                  {u.role}
+                </StatusPill>
+              ),
+              access: (
+                <StatusPill variant={u.blocked ? "danger" : "success"}>
+                  {u.blocked ? "Blocked" : "Active"}
+                </StatusPill>
+              ),
               plan: (
                 <StatusPill variant={planVariant(u.plan)}>
                   {PLAN_LABELS[u.plan as keyof typeof PLAN_LABELS] ?? u.plan ?? "Free"}
-                </StatusPill>
-              ),
-              status: (
-                <StatusPill variant={u.status === "active" ? "success" : "warning"}>
-                  {u.status ?? "active"}
                 </StatusPill>
               ),
               lastActive: formatRelative(u.lastActiveAt),

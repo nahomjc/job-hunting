@@ -2,6 +2,9 @@ import {
   requireDb,
   users,
   subscriptions,
+  profiles,
+  jobMatches,
+  applications,
   aiUsageLogs,
   loginEvents,
   auditLogs,
@@ -35,6 +38,8 @@ function emptyUserMetrics() {
     recentUsers: [] as {
       id: string;
       email: string;
+      role: string;
+      blocked: boolean;
       plan: string | null;
       status: string | null;
       lastActiveAt: Date | null;
@@ -171,6 +176,8 @@ export const adminRepository = {
         .select({
           id: users.id,
           email: users.email,
+          role: users.role,
+          blocked: users.blocked,
           plan: subscriptions.plan,
           status: subscriptions.status,
           lastActiveAt: users.lastActiveAt,
@@ -179,7 +186,7 @@ export const adminRepository = {
         .from(users)
         .leftJoin(subscriptions, eq(users.id, subscriptions.userId))
         .orderBy(desc(users.createdAt))
-        .limit(25);
+        .limit(100);
 
       const totalUsers = totalRow?.value ?? 0;
       const activeUsers = activeRow?.value ?? 0;
@@ -548,6 +555,44 @@ export const adminRepository = {
     } catch {
       return emptySecurityMetrics();
     }
+  },
+
+  async getUserDetail(userId: string) {
+    const db = requireDb();
+
+    const [row] = await db
+      .select({
+        user: users,
+        plan: subscriptions.plan,
+        subStatus: subscriptions.status,
+        profile: profiles,
+      })
+      .from(users)
+      .leftJoin(subscriptions, eq(users.id, subscriptions.userId))
+      .leftJoin(profiles, eq(users.id, profiles.userId))
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!row) return null;
+
+    const [matchRow] = await db
+      .select({ value: count() })
+      .from(jobMatches)
+      .where(eq(jobMatches.userId, userId));
+
+    const [applicationRow] = await db
+      .select({ value: count() })
+      .from(applications)
+      .where(eq(applications.userId, userId));
+
+    return {
+      user: row.user,
+      plan: row.plan,
+      subStatus: row.subStatus,
+      profile: row.profile,
+      jobMatchCount: matchRow?.value ?? 0,
+      applicationCount: applicationRow?.value ?? 0,
+    };
   },
 
   async getOverviewMetrics() {

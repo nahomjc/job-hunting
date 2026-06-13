@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut } from "lucide-react";
+import { LayoutDashboard, LogOut, Shield } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import { userInitials } from "@/lib/utils";
 export interface NavUser {
   email: string;
   avatarUrl?: string | null;
+  isAdmin?: boolean;
 }
 
 interface UserNavMenuProps {
@@ -55,6 +56,14 @@ export function UserNavMenu({ user }: UserNavMenuProps) {
           <p className="truncate text-sm font-medium text-foreground">{user.email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {user.isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer">
+              <Shield />
+              Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <Link href="/dashboard" className="cursor-pointer">
             <LayoutDashboard />

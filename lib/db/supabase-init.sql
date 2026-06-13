@@ -49,6 +49,9 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE subscription_status AS ENUM ('active', 'trialing', 'past_due', 'canceled');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+DO $$ BEGIN CREATE TYPE user_role AS ENUM ('user', 'admin');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 -- Run on existing databases:
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'remotive';
 -- ALTER TYPE job_provider ADD VALUE IF NOT EXISTS 'arbeitnow';
@@ -64,13 +67,21 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE TABLE IF NOT EXISTS users (
   id              UUID PRIMARY KEY,
   email           TEXT NOT NULL UNIQUE,
+  role            user_role NOT NULL DEFAULT 'user',
+  blocked         BOOLEAN NOT NULL DEFAULT FALSE,
+  blocked_at      TIMESTAMPTZ,
+  blocked_reason  TEXT,
   last_active_at  TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Run on existing databases:
--- ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+-- DO $$ BEGIN CREATE TYPE user_role AS ENUM ('user', 'admin'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS role user_role NOT NULL DEFAULT 'user';
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
 -- ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_link_code TEXT;
 -- ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_link_expires_at TIMESTAMPTZ;
 

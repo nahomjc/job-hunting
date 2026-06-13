@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Home, LogOut, Moon, Sun } from "lucide-react";
+import { Home, LayoutDashboard, LogOut, Moon, Shield, Sun } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { userInitials } from "@/lib/utils";
+import { useUserSession } from "@/components/dashboard/user-session-provider";
 
 export function HeaderUserMenu() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { isAdmin } = useUserSession();
   const [email, setEmail] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -64,6 +66,22 @@ export function HeaderUserMenu() {
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer" onClick={() => setOpen(false)}>
+              <Shield />
+              Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard" className="cursor-pointer" onClick={() => setOpen(false)}>
+            <LayoutDashboard />
+            Dashboard
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
           <Link href="/" className="cursor-pointer" onClick={() => setOpen(false)}>

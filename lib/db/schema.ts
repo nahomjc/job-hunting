@@ -101,11 +101,17 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "canceled",
 ]);
 
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
+
 // ─── Users (synced from Supabase Auth) ───────────────────────────────────────
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
+  role: userRoleEnum("role").default("user").notNull(),
+  blocked: boolean("blocked").default(false).notNull(),
+  blockedAt: timestamp("blocked_at", { withTimezone: true }),
+  blockedReason: text("blocked_reason"),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -595,6 +601,7 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
+export type UserRole = "user" | "admin";
 export type Subscription = typeof subscriptions.$inferSelect;
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
 export type LoginEvent = typeof loginEvents.$inferSelect;
