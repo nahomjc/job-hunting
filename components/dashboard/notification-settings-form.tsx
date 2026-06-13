@@ -146,8 +146,8 @@ export function NotificationSettingsForm({ initial }: NotificationSettingsFormPr
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <section>
-        <h3 className="text-sm font-medium mb-1">Email notifications</h3>
+      <section className="rounded-xl border border-border/60 bg-muted/10 p-5">
+        <h3 className="text-sm font-semibold mb-1">Email notifications</h3>
         <p className="text-xs text-muted-foreground mb-4">
           Sent via Brevo when <code className="text-[11px]">BREVO_API_KEY</code> is configured.
         </p>
@@ -207,7 +207,7 @@ export function NotificationSettingsForm({ initial }: NotificationSettingsFormPr
         </div>
       </section>
 
-      <section>
+      <section className="rounded-xl border border-border/60 bg-muted/10 p-5">
         <div className="flex items-center gap-2 mb-1">
           <MessageCircle className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Telegram</h3>

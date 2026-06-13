@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { requireDb, notifications } from "@/lib/db";
 
 export const notificationRepository = {
@@ -8,6 +8,18 @@ export const notificationRepository = {
       .select()
       .from(notifications)
       .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  },
+
+  async findRecentInApp(userId: string, limit = 8) {
+    const db = requireDb();
+    return db
+      .select()
+      .from(notifications)
+      .where(
+        and(eq(notifications.userId, userId), eq(notifications.channel, "in_app"))
+      )
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
   },
@@ -31,15 +43,23 @@ export const notificationRepository = {
     await db
       .update(notifications)
       .set({ read: true })
-      .where(eq(notifications.id, id));
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+  },
+
+  async markAllRead(userId: string) {
+    const db = requireDb();
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
   },
 
   async countUnread(userId: string) {
     const db = requireDb();
-    const rows = await db
-      .select()
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
       .from(notifications)
-      .where(eq(notifications.userId, userId));
-    return rows.filter((n) => !n.read).length;
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+    return result?.count ?? 0;
   },
 };

@@ -5,6 +5,7 @@ import { ExternalLink, MapPin, Wifi, Building2 } from "lucide-react";
 import { CompanyLogo } from "@/components/jobs/company-logo";
 import { MatchScoreBadge } from "@/components/jobs/match-score-badge";
 import { SaveJobButton } from "@/components/jobs/save-job-button";
+import { InvestigateJobButton } from "@/components/jobs/investigate-job-button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDateFound, formatSalary } from "@/lib/utils";
 import {
@@ -161,6 +162,7 @@ export function JobsFoundTable({ rows }: JobsFoundTableProps) {
 
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <InvestigateJobButton job={job} variant="ghost" />
                       <SaveJobButton jobId={job.id} saved={isSaved} />
                       <Link
                         href={job.url}

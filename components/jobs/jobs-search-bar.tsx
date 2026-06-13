@@ -7,10 +7,16 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface JobsSearchBarProps {
+  basePath: string;
   className?: string;
+  placeholder?: string;
 }
 
-export function JobsSearchBar({ className }: JobsSearchBarProps) {
+export function JobsSearchBar({
+  basePath,
+  className,
+  placeholder = "Search jobs, companies, locations…",
+}: JobsSearchBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
@@ -27,9 +33,9 @@ export function JobsSearchBar({ className }: JobsSearchBarProps) {
       } else {
         params.delete("q");
       }
-      router.push(`/dashboard/jobs?${params.toString()}`);
+      router.push(`${basePath}?${params.toString()}`);
     },
-    [router, searchParams]
+    [router, searchParams, basePath]
   );
 
   useEffect(() => {
@@ -45,7 +51,7 @@ export function JobsSearchBar({ className }: JobsSearchBarProps) {
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
       <Input
         type="search"
-        placeholder="Search jobs, companies, locations…"
+        placeholder={placeholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="h-10 pl-9 pr-9 bg-background/60 backdrop-blur-sm border-border/60"

@@ -1,5 +1,6 @@
 import type { JobProviderAdapter, SearchOptions } from "./types";
 import type { JobSearchResult } from "@/types";
+import { jobicyGeoForCountry } from "@/lib/jobs/country-match";
 import { stripHtml } from "./utils";
 
 interface JobicyJob {
@@ -36,6 +37,11 @@ export class JobicyProvider implements JobProviderAdapter {
 
     if (query.trim()) {
       params.set("tag", query.trim());
+    }
+
+    const geo = jobicyGeoForCountry(options.country);
+    if (geo) {
+      params.set("geo", geo);
     }
 
     const res = await fetch(`https://jobicy.com/api/v2/remote-jobs?${params}`, {

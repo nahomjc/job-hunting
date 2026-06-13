@@ -332,6 +332,12 @@ export const applicationEvents = pgTable(
 
 // ─── Interviews ────────────────────────────────────────────────────────────────
 
+export const websiteStatusEnum = pgEnum("website_status", [
+  "found",
+  "missing",
+  "unreachable",
+]);
+
 export const interviews = pgTable(
   "interviews",
   {
@@ -352,6 +358,37 @@ export const interviews = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("interviews_user_id_idx").on(t.userId)]
+);
+
+// ─── Company Investigations ────────────────────────────────────────────────────
+
+export const companyInvestigations = pgTable(
+  "company_investigations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    company: text("company").notNull(),
+    country: text("country"),
+    websiteUrl: text("website_url"),
+    websiteStatus: websiteStatusEnum("website_status").default("missing").notNull(),
+    gaps: jsonb("gaps")
+      .$type<{ type: string; severity: string; evidence: string }[]>()
+      .default([]),
+    intelSummary: text("intel_summary"),
+    pitchLetter: text("pitch_letter"),
+    pitchService: text("pitch_service"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("company_investigations_user_job_idx").on(t.userId, t.jobId),
+    index("company_investigations_user_id_idx").on(t.userId),
+  ]
 );
 
 // ─── Notifications ───────────────────────────────────────────────────────────
@@ -542,6 +579,7 @@ export type JobMatch = typeof jobMatches.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
 export type Interview = typeof interviews.$inferSelect;
+export type CompanyInvestigation = typeof companyInvestigations.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type Resume = typeof resumes.$inferSelect;

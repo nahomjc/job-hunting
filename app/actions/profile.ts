@@ -8,6 +8,36 @@ import { logAudit } from "@/lib/security/audit";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { normalizeProfileUrl } from "@/lib/utils";
 import type { ProfileFormData } from "@/types";
+import type { HuntMode } from "@/lib/jobs/hunt-preferences";
+
+export async function updateHuntPreferences(data: {
+  huntCountry?: string;
+  huntMode?: HuntMode;
+}) {
+  const user = await getAuthUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const limit = rateLimit(`profile:${user.id}`, 20, 60_000);
+  if (!limit.success) throw new Error("Rate limit exceeded");
+
+  await userService.syncFromAuth(user);
+  const profile = await profileRepository.upsert(user.id, {
+    huntCountry: data.huntCountry,
+    huntMode: data.huntMode,
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: "profile.hunt_preferences.update",
+    resource: "profiles",
+    resourceId: profile.id,
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/hunt");
+  revalidatePath("/dashboard");
+  return profile;
+}
 
 export async function updateProfile(data: ProfileFormData) {
   const user = await getAuthUser();
@@ -32,5 +62,7 @@ export async function updateProfile(data: ProfileFormData) {
   });
 
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/hunt");
+  revalidatePath("/dashboard");
   return profile;
 }

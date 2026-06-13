@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import { Briefcase } from "lucide-react";
 import { Header } from "@/components/dashboard/header";
-import { EmptyState } from "@/components/dashboard/empty-state";
 import { RunAgentButton } from "@/components/dashboard/run-agent-button";
-import { JobsFoundTable, type JobTableRow } from "@/components/jobs/jobs-found-table";
-import { JobsFoundToolbar } from "@/components/jobs/jobs-found-toolbar";
+import { JobsFilterToolbar } from "@/components/jobs/jobs-found-toolbar";
+import { JobsResultsSection } from "@/components/jobs/jobs-results-section";
+import { HuntStatusBadge } from "@/components/dashboard/hunt-status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { profileRepository } from "@/lib/repositories/profile-repository";
 import { getAuthUser } from "@/lib/supabase/server";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
 import { jobRepository } from "@/lib/repositories/job-repository";
@@ -13,54 +13,6 @@ import { parseJobFilters } from "@/lib/jobs/parse-filters";
 
 interface JobsPageProps {
   searchParams: Promise<Record<string, string | undefined>>;
-}
-
-async function JobsTableSection({
-  userId,
-  filters,
-  totalJobs,
-  totalMatches,
-}: {
-  userId: string;
-  filters: ReturnType<typeof parseJobFilters>;
-  totalJobs: number;
-  totalMatches: number;
-}) {
-  const matches = await jobMatchRepository.findForUser(userId, filters);
-  const rows: JobTableRow[] = matches.map(({ job, match, application }) => ({
-    job,
-    match,
-    application: application ?? null,
-  }));
-
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        icon={Briefcase}
-        title="No jobs found"
-        description={
-          totalMatches === 0 && totalJobs === 0
-            ? "Click “Search & score jobs” to fetch listings from job boards and AI-score them against your profile."
-            : totalMatches === 0 && totalJobs > 0
-              ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs”.`
-              : "No jobs match your search or filters. Try adjusting filters or clearing them."
-        }
-      />
-    );
-  }
-
-  return (
-    <>
-      <p className="text-sm text-muted-foreground mb-4">
-        Showing <span className="font-medium text-foreground tabular-nums">{rows.length}</span>
-        {totalMatches !== rows.length && (
-          <> of <span className="tabular-nums">{totalMatches}</span></>
-        )}{" "}
-        scored {rows.length === 1 ? "job" : "jobs"}
-      </p>
-      <JobsFoundTable rows={rows} />
-    </>
-  );
 }
 
 export default async function JobsPage({ searchParams }: JobsPageProps) {
@@ -72,10 +24,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   let totalJobs = 0;
   let totalMatches = 0;
+  let profile = null;
   try {
-    [totalJobs, totalMatches] = await Promise.all([
+    [totalJobs, totalMatches, profile] = await Promise.all([
       jobRepository.count(),
       jobMatchRepository.findForUser(user.id).then((m) => m.length),
+      profileRepository.getByUserId(user.id),
     ]);
   } catch {
     // DB not configured
@@ -97,9 +51,11 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
           <RunAgentButton label="Search & score jobs" />
         </div>
 
-        <JobsFoundToolbar />
+        <JobsFilterToolbar basePath="/dashboard/jobs" variant="jobs" />
+        <HuntStatusBadge profile={profile} />
 
         <Suspense
+          key={JSON.stringify(filters)}
           fallback={
             <div className="space-y-3">
               <Skeleton className="h-4 w-32" />
@@ -107,11 +63,17 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             </div>
           }
         >
-          <JobsTableSection
+          <JobsResultsSection
             userId={user.id}
             filters={filters}
-            totalJobs={totalJobs}
             totalMatches={totalMatches}
+            emptyDescription={
+              totalMatches === 0 && totalJobs === 0
+                ? "Click “Search & score jobs” to fetch listings from job boards and AI-score them against your profile."
+                : totalMatches === 0 && totalJobs > 0
+                  ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs”.`
+                  : undefined
+            }
           />
         </Suspense>
       </div>

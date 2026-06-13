@@ -3,17 +3,40 @@
 import { Suspense } from "react";
 import { JobsSearchBar } from "@/components/jobs/jobs-search-bar";
 import { JobsAdvancedFilters } from "@/components/jobs/jobs-advanced-filters";
+import { JobsActiveFilters } from "@/components/jobs/jobs-active-filters";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function JobsFoundToolbar() {
+interface JobsFilterToolbarProps {
+  basePath: string;
+  variant?: "jobs" | "hunt";
+}
+
+export function JobsFilterToolbar({ basePath, variant = "jobs" }: JobsFilterToolbarProps) {
+  const isHunt = variant === "hunt";
+
   return (
-    <div className="space-y-4">
+    <div className="rounded-xl border border-border/80 bg-card/40 p-4 space-y-4 shadow-sm">
       <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-        <JobsSearchBar />
+        <JobsSearchBar
+          basePath={basePath}
+          placeholder={
+            isHunt
+              ? "Search scored jobs in your target country…"
+              : "Search jobs, companies, locations…"
+          }
+        />
       </Suspense>
-      <Suspense fallback={<Skeleton className="h-8 w-48" />}>
-        <JobsAdvancedFilters />
+      <Suspense fallback={<Skeleton className="h-8 w-full" />}>
+        <JobsAdvancedFilters basePath={basePath} variant={variant} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <JobsActiveFilters basePath={basePath} variant={variant} />
       </Suspense>
     </div>
   );
+}
+
+/** @deprecated Use JobsFilterToolbar */
+export function JobsFoundToolbar() {
+  return <JobsFilterToolbar basePath="/dashboard/jobs" variant="jobs" />;
 }

@@ -11,6 +11,8 @@ import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
 import { applicationRepository } from "@/lib/repositories/application-repository";
 import { resumeRepository } from "@/lib/repositories/resume-repository";
 import { notificationService } from "@/lib/services/notification-service";
+import { companyInvestigationService } from "@/lib/services/company-investigation-service";
+import type { ServiceOffered } from "@/lib/jobs/hunt-preferences";
 import type { Job, Profile } from "@/lib/db/schema";
 
 export type ManagerTask =
@@ -18,13 +20,15 @@ export type ManagerTask =
   | "search_jobs"
   | "score_jobs"
   | "generate_application"
-  | "prepare_interview";
+  | "prepare_interview"
+  | "investigate_company";
 
 interface ManagerInput {
   userId: string;
   task: ManagerTask;
   jobId?: string;
   interviewStage?: string;
+  pitchService?: ServiceOffered;
 }
 
 interface ManagerOutput {
@@ -64,6 +68,12 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
             input.jobId,
             input.interviewStage ?? "technical"
           ),
+        };
+      case "investigate_company":
+        if (!input.jobId) throw new Error("jobId required");
+        return {
+          task,
+          results: await this.investigateCompany(userId, input.jobId, input.pitchService),
         };
       case "full_pipeline":
         return { task, results: await this.fullPipeline(userId, profile) };
@@ -155,6 +165,19 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
 
     const result = await interviewAgent.run({ profile, job, stage }, userId);
     return result.data ?? {};
+  }
+
+  private async investigateCompany(
+    userId: string,
+    jobId: string,
+    pitchService?: ServiceOffered
+  ) {
+    const investigation = await companyInvestigationService.investigate(
+      userId,
+      jobId,
+      pitchService
+    );
+    return { investigationId: investigation.id, company: investigation.company };
   }
 
   private async fullPipeline(userId: string, profile: Profile) {

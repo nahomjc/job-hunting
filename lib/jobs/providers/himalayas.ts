@@ -31,6 +31,10 @@ export class HimalayasProvider implements JobProviderAdapter {
       sort: "recent",
     });
 
+    if (options.country) {
+      params.set("country", options.country);
+    }
+
     const res = await fetch(`https://himalayas.app/jobs/api/search?${params}`, {
       headers: { "User-Agent": "JobHunter-AI/1.0" },
       cache: "no-store",

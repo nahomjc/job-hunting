@@ -2,6 +2,7 @@ import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { chatJson } from "../openrouter";
 import { getPrompt, interpolateTemplate } from "../prompts/prompt-service";
 import type { Job, Profile } from "@/lib/db/schema";
+import { getHuntPreferences, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
 import type { MatchScoreResult } from "@/types";
 import { formatSalary } from "@/lib/utils";
 
@@ -29,6 +30,8 @@ export class JobMatchAgent extends BaseAgent<JobMatchInput, MatchScoreResult> {
 
     await ctx.log("Comparing skills, experience, and salary expectations…", { progress: 45 });
 
+    const huntPrefs = getHuntPreferences(profile.preferences);
+
     const userPrompt = interpolateTemplate(prompt.userPromptTemplate, {
       fullName: profile.fullName ?? "Candidate",
       skills: (profile.skills ?? []).join(", "),
@@ -36,6 +39,8 @@ export class JobMatchAgent extends BaseAgent<JobMatchInput, MatchScoreResult> {
       salaryRange: profileSalary,
       locations: (profile.preferredLocations ?? []).join(", ") || "Any",
       remotePreference: profile.remotePreference ?? "any",
+      huntCountry: huntPrefs.huntCountry ? getCountryLabel(huntPrefs.huntCountry) : "Any",
+      huntMode: getHuntModeLabel(huntPrefs.huntMode),
       resumeText: profile.resumeText?.slice(0, 3000) ?? "",
       company: job.company,
       title: job.title,

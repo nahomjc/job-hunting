@@ -16,7 +16,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { countActiveFilters } from "@/lib/jobs/parse-filters";
+import {
+  countActiveFilters,
+  readFiltersFromSearchParams,
+} from "@/lib/jobs/parse-filters";
 import type { CompanySize, ExperienceLevel, JobMatchFilters, RemoteFilter } from "@/types";
 import {
   COMPANY_SIZE_LABELS,
@@ -33,67 +36,75 @@ const REMOTE_OPTIONS: { value: RemoteFilter; label: string }[] = [
 const COMPANY_SIZES: CompanySize[] = ["startup", "mid", "enterprise"];
 const EXPERIENCE_LEVELS: ExperienceLevel[] = ["junior", "mid", "senior", "staff", "lead"];
 
-function readFiltersFromParams(searchParams: URLSearchParams): JobMatchFilters & { q?: string } {
-  const remoteParam = searchParams.get("remote");
-  let remoteFilter: RemoteFilter = "all";
-  if (remoteParam === "true" || remoteParam === "remote") remoteFilter = "remote";
-  else if (remoteParam === "onsite") remoteFilter = "onsite";
-  else if (remoteParam === "hybrid") remoteFilter = "hybrid";
-
-  return {
-    q: searchParams.get("q") ?? undefined,
-    minScore: searchParams.get("minScore") ? Number(searchParams.get("minScore")) : undefined,
-    minSalary: searchParams.get("minSalary") ? Number(searchParams.get("minSalary")) : undefined,
-    maxSalary: searchParams.get("maxSalary") ? Number(searchParams.get("maxSalary")) : undefined,
-    location: searchParams.get("location") ?? undefined,
-    remoteFilter,
-    companySize: (searchParams.get("companySize") as CompanySize) || undefined,
-    experienceLevel: (searchParams.get("experienceLevel") as ExperienceLevel) || undefined,
-  };
+interface JobsAdvancedFiltersProps {
+  basePath: string;
+  variant?: "jobs" | "hunt";
 }
 
-export function JobsAdvancedFilters() {
+function pushFilters(
+  router: ReturnType<typeof useRouter>,
+  basePath: string,
+  searchParams: URLSearchParams,
+  draft: JobMatchFilters & { q?: string },
+  variant: "jobs" | "hunt"
+) {
+  const params = new URLSearchParams(searchParams.toString());
+
+  const setOrDelete = (key: string, value: string | number | undefined) => {
+    if (value !== undefined && value !== "" && value !== 0) {
+      params.set(key, String(value));
+    } else {
+      params.delete(key);
+    }
+  };
+
+  setOrDelete("minScore", draft.minScore);
+  setOrDelete("minSalary", draft.minSalary);
+  setOrDelete("maxSalary", draft.maxSalary);
+  setOrDelete("location", draft.location);
+
+  if (draft.remoteFilter && draft.remoteFilter !== "all") {
+    params.set("remote", draft.remoteFilter);
+  } else {
+    params.delete("remote");
+  }
+
+  if (draft.companySize) params.set("companySize", draft.companySize);
+  else params.delete("companySize");
+
+  if (draft.experienceLevel) params.set("experienceLevel", draft.experienceLevel);
+  else params.delete("experienceLevel");
+
+  if (variant === "hunt") {
+    if (draft.huntCountry) params.set("country", draft.huntCountry);
+    else params.delete("country");
+
+    if (draft.huntMode && draft.huntMode !== "any") params.set("huntMode", draft.huntMode);
+    else params.delete("huntMode");
+  }
+
+  router.push(`${basePath}?${params.toString()}`);
+}
+
+export function JobsAdvancedFilters({ basePath, variant = "jobs" }: JobsAdvancedFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const includeHunt = variant === "hunt";
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => readFiltersFromParams(searchParams));
+  const [draft, setDraft] = useState(() =>
+    readFiltersFromSearchParams(searchParams, { includeHunt })
+  );
 
-  const activeFilters = countActiveFilters(readFiltersFromParams(searchParams));
+  const current = readFiltersFromSearchParams(searchParams, { includeHunt });
+  const activeFilters = countActiveFilters(current, { includeHunt });
 
   function openDialog() {
-    setDraft(readFiltersFromParams(searchParams));
+    setDraft(readFiltersFromSearchParams(searchParams, { includeHunt }));
     setOpen(true);
   }
 
   function applyFilters() {
-    const params = new URLSearchParams(searchParams.toString());
-
-    const setOrDelete = (key: string, value: string | number | undefined) => {
-      if (value !== undefined && value !== "" && value !== 0) {
-        params.set(key, String(value));
-      } else {
-        params.delete(key);
-      }
-    };
-
-    setOrDelete("minScore", draft.minScore);
-    setOrDelete("minSalary", draft.minSalary);
-    setOrDelete("maxSalary", draft.maxSalary);
-    setOrDelete("location", draft.location);
-
-    if (draft.remoteFilter && draft.remoteFilter !== "all") {
-      params.set("remote", draft.remoteFilter);
-    } else {
-      params.delete("remote");
-    }
-
-    if (draft.companySize) params.set("companySize", draft.companySize);
-    else params.delete("companySize");
-
-    if (draft.experienceLevel) params.set("experienceLevel", draft.experienceLevel);
-    else params.delete("experienceLevel");
-
-    router.push(`/dashboard/jobs?${params.toString()}`);
+    pushFilters(router, basePath, searchParams, draft, variant);
     setOpen(false);
   }
 
@@ -101,7 +112,7 @@ export function JobsAdvancedFilters() {
     const q = searchParams.get("q");
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    router.push(`/dashboard/jobs?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
     setDraft({ q: q ?? undefined, remoteFilter: "all" });
     setOpen(false);
   }
@@ -110,10 +121,10 @@ export function JobsAdvancedFilters() {
     const params = new URLSearchParams(searchParams.toString());
     if (filter === "all") params.delete("remote");
     else params.set("remote", filter);
-    router.push(`/dashboard/jobs?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
-  const currentRemote = readFiltersFromParams(searchParams).remoteFilter ?? "all";
+  const currentRemote = current.remoteFilter ?? "all";
 
   return (
     <>
@@ -169,7 +180,9 @@ export function JobsAdvancedFilters() {
           <DialogHeader>
             <DialogTitle>Advanced filters</DialogTitle>
             <DialogDescription>
-              Narrow down jobs by salary, location, company size, and experience level.
+              {includeHunt
+                ? "Refine country hunt results by salary, location, score, and work style."
+                : "Narrow down jobs by salary, location, company size, and experience level."}
             </DialogDescription>
           </DialogHeader>
 
@@ -193,7 +206,7 @@ export function JobsAdvancedFilters() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Remote status</Label>
+                <Label>Work style</Label>
                 <select
                   className="flex h-10 w-full rounded-lg border border-input bg-background/50 px-3 text-sm"
                   value={draft.remoteFilter ?? "all"}

@@ -1,6 +1,8 @@
 import { BaseAgent, type AgentRunContext } from "./base-agent";
 import { createDefaultProviders } from "@/lib/jobs/providers";
 import { buildJobDedupeKey } from "@/lib/jobs/dedupe";
+import { filterJobsByHunt } from "@/lib/jobs/country-match";
+import { getHuntPreferences, getCountryLabel, getHuntModeLabel } from "@/lib/jobs/hunt-preferences";
 import { jobRepository } from "@/lib/repositories/job-repository";
 import type { JobSearchResult } from "@/types";
 import type { Profile } from "@/lib/db/schema";
@@ -42,6 +44,9 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     ctx: AgentRunContext
   ): Promise<JobHunterOutput> {
     const searchQuery = query ?? buildSearchQuery(profile);
+    const huntPrefs = getHuntPreferences(profile.preferences);
+    const huntCountry = huntPrefs.huntCountry;
+    const huntMode = huntPrefs.huntMode ?? "any";
     const providers = createDefaultProviders();
     const seen = new Set<string>();
     let found = 0;
@@ -50,6 +55,12 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
     const byProvider: Record<string, number> = {};
 
     await ctx.log(`Building search query: "${searchQuery}"`, { progress: 10 });
+    if (huntCountry) {
+      await ctx.log(
+        `Targeting ${getCountryLabel(huntCountry)} — ${getHuntModeLabel(huntMode)}`,
+        { progress: 12 }
+      );
+    }
     await ctx.log(`Scanning ${providers.length} job board sources…`, { progress: 15 });
 
     const totalProviders = providers.length;
@@ -63,11 +74,15 @@ export class JobHunterAgent extends BaseAgent<JobHunterInput, JobHunterOutput> {
         metadata: { provider: provider.name },
       });
 
-      const results = await provider.search(searchQuery, {
-        remote: profile.remotePreference === "remote",
+      const rawResults = await provider.search(searchQuery, {
+        remote: huntMode === "remote" || profile.remotePreference === "remote",
         location: profile.preferredLocations?.[0],
+        country: huntCountry,
+        huntMode,
         limit: 25,
       });
+
+      const results = filterJobsByHunt(rawResults, huntCountry, huntMode);
 
       byProvider[provider.name] = results.length;
       const uniqueCompanies = new Set(results.map((r) => r.company.toLowerCase())).size;

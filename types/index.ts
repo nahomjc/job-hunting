@@ -64,6 +64,8 @@ export interface AgentResult<T = Record<string, unknown>> {
   error?: string;
 }
 
+import type { HuntMode, ServiceOffered } from "@/lib/jobs/hunt-preferences";
+
 export interface ProfileFormData {
   fullName: string;
   skills: string[];
@@ -76,6 +78,9 @@ export interface ProfileFormData {
   githubUrl: string;
   portfolioUrl: string;
   resumeText: string;
+  huntCountry?: string;
+  huntMode?: HuntMode;
+  servicesOffered?: ServiceOffered[];
 }
 
 export type ExperienceLevel = "junior" | "mid" | "senior" | "staff" | "lead" | "unknown";
@@ -93,6 +98,8 @@ export interface JobMatchFilters {
   companySize?: CompanySize;
   experienceLevel?: ExperienceLevel;
   status?: ApplicationStatus;
+  huntCountry?: string;
+  huntMode?: import("@/lib/jobs/hunt-preferences").HuntMode;
 }
 
 export type NotificationWithMeta = Notification;

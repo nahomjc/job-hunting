@@ -61,6 +61,10 @@ export class LandingJobsProvider implements JobProviderAdapter {
       params.set("remote", "true");
     }
 
+    if (options.huntMode === "onsite") {
+      params.delete("remote");
+    }
+
     const res = await fetch(`https://landing.jobs/api/v1/jobs?${params}`, {
       headers: { "User-Agent": "JobHunter-AI/1.0" },
       cache: "no-store",

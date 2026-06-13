@@ -4,9 +4,11 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { JobMatchCard } from "@/components/dashboard/job-match-card";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { RunAgentButton } from "@/components/dashboard/run-agent-button";
+import { HuntStatusBadge } from "@/components/dashboard/hunt-status-badge";
 import { getAuthUser } from "@/lib/supabase/server";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
+import { profileRepository } from "@/lib/repositories/profile-repository";
 import { formatPercent } from "@/lib/utils";
 
 export default async function OverviewPage() {
@@ -22,11 +24,13 @@ export default async function OverviewPage() {
     highMatchJobs: 0,
   };
   let topMatches: Awaited<ReturnType<typeof jobMatchRepository.findForUser>> = [];
+  let profile = null;
 
   try {
-    [stats, topMatches] = await Promise.all([
+    [stats, topMatches, profile] = await Promise.all([
       analyticsService.getDashboardStats(user.id),
       jobMatchRepository.findForUser(user.id, { minScore: 70 }),
+      profileRepository.getByUserId(user.id),
     ]);
   } catch {
     // DB not configured
@@ -40,9 +44,12 @@ export default async function OverviewPage() {
       />
       <div className="flex-1 space-y-6 p-4 md:p-8">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
-          <p className="text-sm text-muted-foreground">
-            Agents search job boards every 6 hours and score matches against your profile.
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Agents search job boards and score matches against your profile.
+            </p>
+            <HuntStatusBadge profile={profile} />
+          </div>
           <RunAgentButton />
         </div>
 

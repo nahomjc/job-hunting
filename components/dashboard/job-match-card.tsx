@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatSalary } from "@/lib/utils";
 import { MapPin, Building2, Wifi, ArrowUpRight } from "lucide-react";
+import { InvestigateJobButton } from "@/components/jobs/investigate-job-button";
 import type { Job, JobMatch, Application } from "@/lib/db/schema";
 
 interface JobMatchCardProps {
@@ -64,12 +65,15 @@ export function JobMatchCard({ job, match, application }: JobMatchCardProps) {
             ))}
           </ul>
         )}
-        <div className="flex items-center justify-between pt-1">
-          {application && (
-            <Badge variant="outline" className="capitalize">
-              {application.status.replace(/_/g, " ")}
-            </Badge>
-          )}
+        <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+          <div className="flex items-center gap-2">
+            {application && (
+              <Badge variant="outline" className="capitalize">
+                {application.status.replace(/_/g, " ")}
+              </Badge>
+            )}
+            <InvestigateJobButton job={job} />
+          </div>
           <Link
             href={job.url}
             target="_blank"

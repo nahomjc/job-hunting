@@ -1,11 +1,21 @@
+import type { Profile } from "@/lib/db/schema";
+import { getHuntPreferences, type HuntMode } from "@/lib/jobs/hunt-preferences";
 import type { CompanySize, ExperienceLevel, JobMatchFilters, RemoteFilter } from "@/types";
 
+function parseRemoteFilter(remoteParam?: string): RemoteFilter {
+  if (remoteParam === "true" || remoteParam === "remote") return "remote";
+  if (remoteParam === "onsite") return "onsite";
+  if (remoteParam === "hybrid") return "hybrid";
+  return "all";
+}
+
+function parseHuntMode(value?: string): HuntMode | undefined {
+  if (value === "remote" || value === "onsite" || value === "any") return value;
+  return undefined;
+}
+
 export function parseJobFilters(params: Record<string, string | undefined>): JobMatchFilters {
-  const remoteParam = params.remote;
-  let remoteFilter: RemoteFilter = "all";
-  if (remoteParam === "true" || remoteParam === "remote") remoteFilter = "remote";
-  else if (remoteParam === "onsite") remoteFilter = "onsite";
-  else if (remoteParam === "hybrid") remoteFilter = "hybrid";
+  const remoteFilter = parseRemoteFilter(params.remote);
 
   return {
     minScore: params.minScore ? Number(params.minScore) : undefined,
@@ -17,13 +27,33 @@ export function parseJobFilters(params: Record<string, string | undefined>): Job
     search: params.q || undefined,
     companySize: (params.companySize as CompanySize) || undefined,
     experienceLevel: (params.experienceLevel as ExperienceLevel) || undefined,
+    huntCountry: params.country || undefined,
+    huntMode: parseHuntMode(params.huntMode),
   };
 }
 
-export function filtersToSearchParams(filters: Partial<JobMatchFilters> & { q?: string }): URLSearchParams {
+export function parseHuntPageFilters(
+  params: Record<string, string | undefined>,
+  profile?: Profile | null
+): JobMatchFilters {
+  const base = parseJobFilters(params);
+  const prefs = getHuntPreferences(profile?.preferences);
+
+  return {
+    ...base,
+    huntCountry: params.country ?? prefs.huntCountry ?? undefined,
+    huntMode: parseHuntMode(params.huntMode) ?? prefs.huntMode ?? undefined,
+  };
+}
+
+export function filtersToSearchParams(
+  filters: Partial<JobMatchFilters> & { q?: string },
+  options?: { includeHunt?: boolean }
+): URLSearchParams {
   const params = new URLSearchParams();
 
-  if (filters.q) params.set("q", filters.q);
+  const search = filters.q ?? filters.search;
+  if (search) params.set("q", search);
   if (filters.minScore) params.set("minScore", String(filters.minScore));
   if (filters.minSalary) params.set("minSalary", String(filters.minSalary));
   if (filters.maxSalary) params.set("maxSalary", String(filters.maxSalary));
@@ -34,10 +64,15 @@ export function filtersToSearchParams(filters: Partial<JobMatchFilters> & { q?: 
   const rf = filters.remoteFilter;
   if (rf && rf !== "all") params.set("remote", rf);
 
+  if (options?.includeHunt) {
+    if (filters.huntCountry) params.set("country", filters.huntCountry);
+    if (filters.huntMode) params.set("huntMode", filters.huntMode);
+  }
+
   return params;
 }
 
-export function countActiveFilters(filters: JobMatchFilters): number {
+export function countActiveFilters(filters: JobMatchFilters, options?: { includeHunt?: boolean }): number {
   let count = 0;
   if (filters.minScore) count++;
   if (filters.minSalary) count++;
@@ -46,5 +81,35 @@ export function countActiveFilters(filters: JobMatchFilters): number {
   if (filters.location) count++;
   if (filters.companySize) count++;
   if (filters.experienceLevel) count++;
+  if (options?.includeHunt) {
+    if (filters.huntCountry) count++;
+    if (filters.huntMode && filters.huntMode !== "any") count++;
+  }
   return count;
+}
+
+export function readFiltersFromSearchParams(
+  searchParams: URLSearchParams,
+  options?: { includeHunt?: boolean }
+): JobMatchFilters & { q?: string } {
+  const remoteFilter = parseRemoteFilter(searchParams.get("remote") ?? undefined);
+
+  const filters: JobMatchFilters & { q?: string } = {
+    q: searchParams.get("q") ?? undefined,
+    search: searchParams.get("q") ?? undefined,
+    minScore: searchParams.get("minScore") ? Number(searchParams.get("minScore")) : undefined,
+    minSalary: searchParams.get("minSalary") ? Number(searchParams.get("minSalary")) : undefined,
+    maxSalary: searchParams.get("maxSalary") ? Number(searchParams.get("maxSalary")) : undefined,
+    location: searchParams.get("location") ?? undefined,
+    remoteFilter,
+    companySize: (searchParams.get("companySize") as CompanySize) || undefined,
+    experienceLevel: (searchParams.get("experienceLevel") as ExperienceLevel) || undefined,
+  };
+
+  if (options?.includeHunt) {
+    filters.huntCountry = searchParams.get("country") ?? undefined;
+    filters.huntMode = parseHuntMode(searchParams.get("huntMode") ?? undefined);
+  }
+
+  return filters;
 }

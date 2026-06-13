@@ -1,10 +1,19 @@
+import { Suspense } from "react";
 import { Header } from "@/components/dashboard/header";
-import { ProfileForm } from "@/components/dashboard/profile-form";
-import { NotificationSettingsForm } from "@/components/dashboard/notification-settings-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsTabs } from "@/components/dashboard/settings-tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthUser } from "@/lib/supabase/server";
 import { profileRepository } from "@/lib/repositories/profile-repository";
 import { getNotificationSettingsDisplay } from "@/lib/services/notification-settings-display";
+
+function SettingsTabsFallback() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-12 w-full rounded-xl" />
+      <Skeleton className="h-96 w-full rounded-xl" />
+    </div>
+  );
+}
 
 export default async function SettingsPage() {
   const user = await getAuthUser();
@@ -27,37 +36,16 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <Header title="Settings" description="Manage your profile and preferences" />
-      <div className="flex-1 p-4 md:p-8 space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>
-              Drop your CV to let AI parse it and build your profile. Supports PDF, DOCX, and TXT.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProfileForm profile={profile} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>
-              Email (Brevo) and Telegram alerts for matches, interviews, and weekly reports.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {notificationSettings ? (
-              <NotificationSettingsForm initial={notificationSettings} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Connect the database to manage notification preferences.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <Header
+        title="Settings"
+        description="Manage your profile, hunt preferences, and notification channels"
+      />
+      <div className="flex-1 p-4 md:p-8">
+        <div className="mx-auto max-w-4xl">
+          <Suspense fallback={<SettingsTabsFallback />}>
+            <SettingsTabs profile={profile} notificationSettings={notificationSettings} />
+          </Suspense>
+        </div>
       </div>
     </>
   );
