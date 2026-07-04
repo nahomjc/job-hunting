@@ -16,6 +16,7 @@ import { profileRepository } from "@/lib/repositories/profile-repository";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
 import { parseHuntResultsFilters } from "@/lib/jobs/parse-filters";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
+import { userHasCv } from "@/lib/profile/has-cv";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { getLocalBusinessLeads } from "@/app/actions/business-leads";
@@ -51,12 +52,14 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
   let profile = null;
   let totalMatches = 0;
   let lastRun = null;
+  let hasCv = false;
   let businessLeads: Awaited<ReturnType<typeof getLocalBusinessLeads>> = [];
   try {
-    [profile, totalMatches, lastRun] = await Promise.all([
+    [profile, totalMatches, lastRun, hasCv] = await Promise.all([
       profileRepository.getByUserId(user.id),
       jobMatchRepository.findForUser(user.id).then((m) => m.length),
       getLastHuntSummary(user.id),
+      userHasCv(user.id),
     ]);
   } catch {
     // DB not configured
@@ -155,6 +158,7 @@ export default async function LocalHuntPage({ searchParams }: HuntPageProps) {
                   providerCount={providerCount}
                   ethiopiaBoardsEnabled={ethiopiaBoards}
                   lastRun={lastRun}
+                  hasCv={hasCv}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-border/60 p-4">

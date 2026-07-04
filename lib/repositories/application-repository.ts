@@ -1,6 +1,8 @@
 import { eq, and, sql, inArray, desc } from "drizzle-orm";
 import { requireDb, applications, jobs, jobMatches } from "@/lib/db";
 import type { ApplicationStatus } from "@/types";
+import type { StatsDateRange } from "@/lib/analytics/stats-period";
+import { withDateRange, withSqlDateRange } from "@/lib/analytics/date-range-sql";
 import { applicationEventRepository } from "@/lib/repositories/application-event-repository";
 import { interviewRepository } from "@/lib/repositories/interview-repository";
 
@@ -135,14 +137,34 @@ export const applicationRepository = {
     return app;
   },
 
-  async countByStatus(userId: string, statuses: ApplicationStatus[]) {
+  async countByStatus(
+    userId: string,
+    statuses: ApplicationStatus[],
+    range?: StatsDateRange,
+    dateOn: "applied" | "updated" = "applied"
+  ) {
     const db = requireDb();
+    const conditions = [
+      eq(applications.userId, userId),
+      inArray(applications.status, statuses),
+    ];
+
+    if (range?.from ?? range?.to) {
+      if (dateOn === "updated") {
+        withDateRange(conditions, applications.updatedAt, range);
+      } else {
+        withSqlDateRange(
+          conditions,
+          sql`COALESCE(${applications.appliedAt}, ${applications.createdAt})`,
+          range
+        );
+      }
+    }
+
     const [result] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(applications)
-      .where(
-        and(eq(applications.userId, userId), inArray(applications.status, statuses))
-      );
+      .where(and(...conditions));
     return result?.count ?? 0;
   },
 };

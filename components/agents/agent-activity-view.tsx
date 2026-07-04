@@ -36,7 +36,7 @@ function mapAgents(data: ActivityResponse["agents"]): AgentCardData[] {
   });
 }
 
-export function AgentActivityView() {
+export function AgentActivityView({ hasCv = true }: { hasCv?: boolean }) {
   const [data, setData] = useState<ActivityResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function AgentActivityView() {
           />
 
           <div className="ml-auto">
-            <RunAgentButton label="Run agents" />
+            <RunAgentButton label="Run agents" hasCv={hasCv} />
           </div>
         </motion.div>
 

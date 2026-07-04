@@ -13,6 +13,7 @@ import { resumeRepository } from "@/lib/repositories/resume-repository";
 import { notificationService } from "@/lib/services/notification-service";
 import { companyInvestigationService } from "@/lib/services/company-investigation-service";
 import type { ServiceOffered } from "@/lib/jobs/hunt-preferences";
+import { profileHasCv, CV_REQUIRED_MESSAGE } from "@/lib/profile/has-cv";
 import type { Job, Profile } from "@/lib/db/schema";
 
 export type ManagerTask =
@@ -47,6 +48,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
     const profile = await profileRepository.getByUserId(userId);
     if (!profile) throw new Error("Profile not found. Complete your profile first.");
 
+    if (task === "full_pipeline" || task === "search_jobs") {
+      await this.assertHasCv(userId, profile);
+    }
+
     switch (task) {
       case "search_jobs":
         return { task, results: await this.searchJobs(userId, profile) };
@@ -80,6 +85,13 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerOutput> {
       default:
         throw new Error(`Unknown task: ${task}`);
     }
+  }
+
+  private async assertHasCv(userId: string, profile: Profile) {
+    if (profileHasCv(profile)) return;
+    const resume = await resumeRepository.findDefault(userId);
+    if (resume?.content?.trim()) return;
+    throw new Error(CV_REQUIRED_MESSAGE);
   }
 
   private async searchJobs(userId: string, profile: Profile) {

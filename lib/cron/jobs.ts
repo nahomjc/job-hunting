@@ -2,6 +2,8 @@ import { requireDb, profiles } from "@/lib/db";
 import { managerAgent } from "@/lib/ai/agents/manager-agent";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { notificationService } from "@/lib/services/notification-service";
+import { profileHasCv } from "@/lib/profile/has-cv";
+import { resumeRepository } from "@/lib/repositories/resume-repository";
 
 export type CronJobName = "search_jobs" | "recalculate_scores" | "weekly_report";
 
@@ -19,6 +21,8 @@ export async function runSearchJobs(): Promise<CronJobResult> {
     const results = [];
 
     for (const profile of allProfiles) {
+      if (!(await profileReadyForHunt(profile))) continue;
+
       const result = await managerAgent.run(
         { userId: profile.userId, task: "full_pipeline" },
         profile.userId
@@ -69,7 +73,7 @@ export async function runWeeklyReport(): Promise<CronJobResult> {
     const reports = [];
 
     for (const profile of allProfiles) {
-      const stats = await analyticsService.getDashboardStats(profile.userId);
+      const stats = await analyticsService.getDashboardStats(profile.userId, "all_time");
       await notificationService.notifyWeeklyReport(profile.userId, stats);
       reports.push({ userId: profile.userId, stats });
     }
@@ -93,6 +97,12 @@ const RUNNERS: Record<CronJobName, () => Promise<CronJobResult>> = {
 
 export async function runCronJob(name: CronJobName): Promise<CronJobResult> {
   return RUNNERS[name]();
+}
+
+async function profileReadyForHunt(profile: (typeof profiles.$inferSelect)) {
+  if (profileHasCv(profile)) return true;
+  const resume = await resumeRepository.findDefault(profile.userId);
+  return Boolean(resume?.content?.trim());
 }
 
 export async function runCronJobs(names: CronJobName[]): Promise<CronJobResult[]> {

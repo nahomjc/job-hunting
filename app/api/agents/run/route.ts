@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabase/server";
 import { agentExecutionRepository } from "@/lib/repositories/agent-execution-repository";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { requireUserCv } from "@/lib/profile/has-cv";
 import { runFullPipelineInBackground } from "@/lib/agents/run-pipeline";
 
 export async function POST() {
@@ -13,6 +14,15 @@ export async function POST() {
   const limit = rateLimit(`agent:${user.id}`, 10, 60_000);
   if (!limit.success) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  try {
+    await requireUserCv(user.id);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "CV required" },
+      { status: 400 }
+    );
   }
 
   const running = await agentExecutionRepository.findPipelineRunning(user.id);

@@ -6,12 +6,14 @@ import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { runAgentTask } from "@/app/actions/agent";
 import type { ManagerTask } from "@/lib/ai/agents/manager-agent";
+import { CV_REQUIRED_MESSAGE, CV_SETTINGS_PATH } from "@/lib/profile/cv-constants";
 import { toast } from "sonner";
 
 interface RunAgentButtonProps {
   task?: ManagerTask;
   label?: string;
   variant?: "default" | "outline" | "secondary";
+  hasCv?: boolean;
 }
 
 interface PipelineResults {
@@ -67,11 +69,18 @@ export function RunAgentButton({
   task = "full_pipeline",
   label = "Run Job Hunter",
   variant = "default",
+  hasCv = true,
 }: RunAgentButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleRun() {
+    if (!hasCv) {
+      toast.error(CV_REQUIRED_MESSAGE);
+      router.push(CV_SETTINGS_PATH);
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await runAgentTask(task);
@@ -96,9 +105,9 @@ export function RunAgentButton({
   }
 
   return (
-    <Button onClick={handleRun} disabled={loading} variant={variant}>
+    <Button onClick={handleRun} disabled={loading || !hasCv} variant={variant}>
       <Bot className="h-4 w-4" />
-      {loading ? "Hunting..." : label}
+      {loading ? "Hunting..." : !hasCv ? "Upload CV to hunt" : label}
     </Button>
   );
 }

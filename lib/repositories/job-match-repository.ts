@@ -1,4 +1,4 @@
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { requireDb, jobMatches, jobs, applications } from "@/lib/db";
 import {
   buildJobFilterConditions,
@@ -8,7 +8,8 @@ import { inferCompanySize } from "@/lib/jobs/job-metadata";
 import { dedupeKeyFromJob } from "@/lib/jobs/dedupe";
 import { resolveJobDisplayDate } from "@/lib/jobs/parse-posted-date";
 import { DEFAULT_JOB_PAGE_SIZE, paginateSlice } from "@/lib/jobs/pagination";
-import type { MatchScoreResult, JobMatchFilters } from "@/types";
+import type { StatsDateRange } from "@/lib/analytics/stats-period";
+import { withDateRange } from "@/lib/analytics/date-range-sql";
 
 function applyCompanySizeFilter<T extends { job: typeof jobs.$inferSelect }>(
   rows: T[],
@@ -129,12 +130,32 @@ export const jobMatchRepository = {
     return rows.length;
   },
 
-  async countHighMatches(userId: string, threshold = 80) {
+  async countHighMatches(userId: string, threshold = 80, range?: StatsDateRange) {
     const db = requireDb();
-    const rows = await db
-      .select()
+    const conditions = [
+      eq(jobMatches.userId, userId),
+      gte(jobMatches.score, threshold),
+    ];
+    if (range?.from ?? range?.to) {
+      withDateRange(conditions, jobMatches.scoredAt, range);
+    }
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
       .from(jobMatches)
-      .where(and(eq(jobMatches.userId, userId), gte(jobMatches.score, threshold)));
-    return rows.length;
+      .where(and(...conditions));
+    return result?.count ?? 0;
+  },
+
+  async countMatchesForUser(userId: string, range?: StatsDateRange) {
+    const db = requireDb();
+    const conditions = [eq(jobMatches.userId, userId)];
+    if (range?.from ?? range?.to) {
+      withDateRange(conditions, jobMatches.scoredAt, range);
+    }
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(jobMatches)
+      .where(and(...conditions));
+    return result?.count ?? 0;
   },
 };

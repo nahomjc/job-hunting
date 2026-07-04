@@ -12,10 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { profileRepository } from "@/lib/repositories/profile-repository";
 import { getAuthUser } from "@/lib/supabase/server";
 import { jobMatchRepository } from "@/lib/repositories/job-match-repository";
-import { jobRepository } from "@/lib/repositories/job-repository";
 import { parseJobFilters } from "@/lib/jobs/parse-filters";
 import { getInitialHuntState, getCountryLabel } from "@/lib/jobs/hunt-preferences";
 import { getLastHuntSummary } from "@/lib/hunt/last-run";
+import { userHasCv } from "@/lib/profile/has-cv";
 import { countProvidersForHunt, ethiopiaProvidersEnabled } from "@/lib/jobs/providers";
 import { getLocalBusinessLeads } from "@/app/actions/business-leads";
 
@@ -30,17 +30,17 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const params = await searchParams;
   const filters = parseJobFilters(params);
 
-  let totalJobs = 0;
   let totalMatches = 0;
   let profile = null;
   let lastRun = null;
+  let hasCv = false;
   let businessLeads: Awaited<ReturnType<typeof getLocalBusinessLeads>> = [];
   try {
-    [totalJobs, totalMatches, profile, lastRun] = await Promise.all([
-      jobRepository.count(),
-      jobMatchRepository.findForUser(user.id).then((m) => m.length),
+    [totalMatches, profile, lastRun, hasCv] = await Promise.all([
+      jobMatchRepository.countMatchesForUser(user.id),
       profileRepository.getByUserId(user.id),
       getLastHuntSummary(user.id),
+      userHasCv(user.id),
     ]);
   } catch {
     // DB not configured
@@ -82,7 +82,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                   <h2 className="text-base font-semibold">Search results</h2>
                   <p className="text-xs text-muted-foreground mt-1">
                     {totalMatches > 0
-                      ? `${totalMatches} scored matches · ${totalJobs} in database — sort by date or best match, then filter below`
+                      ? `${totalMatches} scored matches — sort by date or best match, then filter below`
                       : "Run a search in the Search & score tab — results appear here after each run."}
                   </p>
                 </div>
@@ -116,11 +116,9 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                   basePath="/dashboard/jobs"
                   scrollAnchor="jobs-results"
                   emptyDescription={
-                    totalMatches === 0 && totalJobs === 0
+                    totalMatches === 0
                       ? "Go to Search & score to fetch listings from boards and AI-score them."
-                      : totalMatches === 0 && totalJobs > 0
-                        ? `${totalJobs} jobs in database but none scored yet. Run “Search & score jobs” in the Search tab.`
-                        : undefined
+                      : undefined
                   }
                 />
               </Suspense>
@@ -136,6 +134,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                 basePath="/dashboard/jobs"
                 resultsAnchorId="jobs-results"
                 onCompleteTab="results"
+                hasCv={hasCv}
               />
               <div className="rounded-lg border border-border/60 p-4">
                 <h3 className="text-sm font-medium">Jobs Found vs Local Hunt</h3>

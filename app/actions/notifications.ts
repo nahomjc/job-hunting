@@ -57,6 +57,7 @@ export async function updateNotificationSettingsAction(data: {
   });
 
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -80,6 +81,7 @@ export async function generateTelegramLinkAction() {
   });
 
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
 
   return {
     code,
@@ -103,6 +105,7 @@ export async function disconnectTelegramAction() {
   });
 
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

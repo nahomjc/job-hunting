@@ -17,8 +17,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { formatRelativeTime } from "@/lib/agents/activity-display";
 import { PIPELINE_CANCEL_MESSAGE } from "@/lib/agents/cancellation";
+import { CV_REQUIRED_MESSAGE, CV_SETTINGS_PATH } from "@/lib/profile/cv-constants";
 import { clearPageParam } from "@/lib/jobs/pagination";
 import type { LastHuntSummary } from "@/lib/hunt/last-run";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ export interface JobSearchPipelinePanelProps {
   ethiopiaBoardsEnabled?: boolean;
   /** URL tab param to switch to when pipeline completes (e.g. jobs page tabs). */
   onCompleteTab?: string;
+  hasCv?: boolean;
 }
 
 type StepState = "pending" | "active" | "complete" | "error";
@@ -287,6 +290,7 @@ export function JobSearchPipelinePanel({
   modeLabel = "Any",
   ethiopiaBoardsEnabled = false,
   onCompleteTab,
+  hasCv = true,
 }: JobSearchPipelinePanelProps) {
   const copy = COPY[variant];
   const router = useRouter();
@@ -413,6 +417,12 @@ export function JobSearchPipelinePanel({
   const progress = overallProgress(steps, hunter, matcher);
 
   async function handleRun() {
+    if (!hasCv) {
+      toast.error(CV_REQUIRED_MESSAGE);
+      router.push(CV_SETTINGS_PATH);
+      return;
+    }
+
     completionHandledForRef.current = null;
     setPhase("running");
     setResults(null);
@@ -484,6 +494,14 @@ export function JobSearchPipelinePanel({
               Also scanning EthioJobs, Afriwork, and HaHu Jobs for Ethiopia-based roles.
             </p>
           )}
+          {!hasCv && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              <Link href={CV_SETTINGS_PATH} className="underline underline-offset-2 hover:text-amber-500">
+                Upload your CV
+              </Link>{" "}
+              in Settings before running a job search.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           {isRunning && (
@@ -509,7 +527,7 @@ export function JobSearchPipelinePanel({
           )}
           <Button
             onClick={handleRun}
-            disabled={isRunning}
+            disabled={isRunning || !hasCv}
             variant="premium"
             size="sm"
           >
@@ -521,7 +539,11 @@ export function JobSearchPipelinePanel({
             ) : (
               <>
                 <Radar className="h-4 w-4" />
-                {phase === "complete" ? copy.againButton : copy.startButton}
+                {!hasCv
+                  ? "Upload CV to start"
+                  : phase === "complete"
+                    ? copy.againButton
+                    : copy.startButton}
               </>
             )}
           </Button>
