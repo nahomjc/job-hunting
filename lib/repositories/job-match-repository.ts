@@ -10,6 +10,7 @@ import { resolveJobDisplayDate } from "@/lib/jobs/parse-posted-date";
 import { DEFAULT_JOB_PAGE_SIZE, paginateSlice } from "@/lib/jobs/pagination";
 import type { StatsDateRange } from "@/lib/analytics/stats-period";
 import { withDateRange } from "@/lib/analytics/date-range-sql";
+import type { MatchScoreResult, JobMatchFilters } from "@/types";
 
 function applyCompanySizeFilter<T extends { job: typeof jobs.$inferSelect }>(
   rows: T[],
